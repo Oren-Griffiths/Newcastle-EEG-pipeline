@@ -1,0 +1,15 @@
+Bin1
+Training_14s
+.{12}
+
+Bin 2
+Test1_14s
+.{22}
+
+Bin 3 
+Test2_14s
+.{32}
+
+Bin 4
+FullAttnCtrl
+.{42}
