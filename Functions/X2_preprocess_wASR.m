@@ -40,13 +40,17 @@ clearvars -except DataConfig SUB mode;
         if strcmp(DataConfig.ReReference{1}, 'Mastoid')
             EEG = pop_reref( EEG, [DataConfig.KeyChans{3},DataConfig.KeyChans{4}] );
         else % average reference
-            EEG = pop_reref( EEG, [DataConfig.firstScalp:DataConfig.lastScalp] );
+            EEG = pop_reref( EEG, ...
+                [DataConfig.firstScalp:DataConfig.lastScalp], ...
+                'keepref', 'on');
         end
         
         
         % remove any non-scalp channels. With ASR channel removal, hard to
         % keep track of non-scalp channels (which could be removed)
-        EEG = pop_select( EEG, 'channel',[DataConfig.firstScalp:DataConfig.lastScalp]);
+        EEG = pop_select( EEG, ...
+            'channel', [DataConfig.firstScalp:DataConfig.lastScalp]); 
+
 
         % save a copy of the raw data before preprocessing (for later figure). 
         rawEEG = EEG;
@@ -80,7 +84,7 @@ clearvars -except DataConfig SUB mode;
        if sum(removed_channels) > 0
            % ASR removed some channels. Document which ones and their data.
            EEG.removedChannels.chanlocs = EEG.urchanlocs(removed_channels);
-           EEG.removedChannels.data = EEG.data(removed_channels,:);
+           EEG.removedChannels.data = rawEEG.data(removed_channels,:);
            % (this will only work for this one data set...)
            DataConfig.lastScalp = DataConfig.lastScalp - numel(EEG.removedChannels.chanlocs);
            

@@ -2,7 +2,7 @@
 global DataConfig
 
 % which experiment are we going to run?
-ConfigFileName = 'Config_Natalie';
+ConfigFileName = 'Config_P4B';
 
 % what do we need to do?
 ModeToPerform = 'AutoICA';
@@ -31,7 +31,7 @@ switch ModeToPerform
 end
 
 %% You can manually enter a function sequence here too. 
-FunctionsToRun = [5 6 7];
+FunctionsToRun = [4];
 %%
 
 ResetICAcomponents = 1;
@@ -106,9 +106,9 @@ if ismember(2,FunctionsToRun)
     %% adjust events so they're on the correct timeline.
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
-    for loopIdx = 1:totalSUBS
+    parfor loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
-        mode = 'reject'; % 'reject' or 'interpolate'
+        mode = 'interpolate'; % 'reject' or 'interpolate'
         % can either 'reject' bad channels (ASR default, better for ICA)
         % or identify and interpolate (keeps same number of channels, so
         % good for topography in channel space, but reduces rank for ICA).
@@ -125,7 +125,7 @@ if ismember(3,FunctionsToRun)
     %% adjust events so they're on the correct timeline.
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
-    for loopIdx = 1:totalSUBS
+    parfor loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
         X3_fixEvents(tmpDataConfig, SUB);
     end
@@ -140,7 +140,7 @@ if ismember(4,FunctionsToRun)
     % ASR removes or reduces periods of undue noisiness.
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
-    for loopIdx = 1:totalSUBS
+    parfor loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
         ICAmode = 'removeEyes'; 
         % 'removeEyes' removes the eye components
