@@ -2,7 +2,7 @@
 global DataConfig
 
 % which experiment are we going to run?
-ConfigFileName = 'Config_P4B';
+ConfigFileName = 'Config_P4B_after110';
 
 % what do we need to do?
 ModeToPerform = 'AutoICA';
@@ -12,6 +12,12 @@ ModeToPerform = 'AutoICA';
 % 'AutoICA' = calls IClabel to remove eye components (fully automatic).
 % You can write your own processing path if you want as well...
 % but note that things might break if you alter it too much.
+
+ASR_mode = 'reject_time';
+% 'reject_time' = do burst (time) rejection, but interpolate channels.
+% 'interpolate' = interpolate rejected time periods AND channels
+% 'reject_chan' = interpolate bad times, but reject bad chans.
+% 'reject_both' = purist. reject bad times and channels.
 
 % figure out which functions to run
 switch ModeToPerform
@@ -30,16 +36,15 @@ switch ModeToPerform
         FunctionsToRun = [1 2 3 4 5 6 7];
 end
 
-%% You can manually enter a function sequence here too. 
-FunctionsToRun = [4];
-%%
+%% You can manually enter a function sequence here too. %%%%%%%%%%%%%%%%%%%
+% FunctionsToRun = [2];
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 ResetICAcomponents = 1;
 % default should be to overwrite.
 % 1 = overwrite ICAcomponents.xlsx file when you're in preICA mode.
 % 0 = do not overwrite ICAcomponents.xlsx.
 % token change.
-
 
 %% PROCESSING BEGINS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -58,6 +63,7 @@ DataConfig = table2struct(readtable(ConfigFilePath, Options));
 
 % feed in info about what you want the config file to contain or do.
 DataConfig.mode = ModeToPerform;
+DataConfig.ASR_mode = ASR_mode; 
 DataConfig.ResetICAcomponents = ResetICAcomponents;
 
 % adjust the config data to suit our purposes. Essentially takes the data
@@ -84,18 +90,14 @@ currentTime = clock;
 StartTime = currentTime(4)*60 + currentTime(5);
 
 
-%% do the preprocessing via PREP pipeline (or equivalent if PREP is
-% excluded). Also, can't do this parallel, as PREP calls up a
-% multithread loop, and those can't be nested.
+%% do the preprocessing via ASR method.
 if ismember(1,FunctionsToRun)
-    
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
     for loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
         X1_import_ds(tmpDataConfig, SUB);
     end
-    
 end
 
 if ismember(2,FunctionsToRun)
@@ -104,18 +106,14 @@ if ismember(2,FunctionsToRun)
     DataConfig.LastSuffix = cellstr('_ds_addChans.set');
     
     %% adjust events so they're on the correct timeline.
+
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
-    parfor loopIdx = 1:totalSUBS
+    for loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
-        mode = 'interpolate'; % 'reject' or 'interpolate'
-        % can either 'reject' bad channels (ASR default, better for ICA)
-        % or identify and interpolate (keeps same number of channels, so
-        % good for topography in channel space, but reduces rank for ICA).
-        X2_preprocess_wASR(tmpDataConfig, SUB, mode);
+        X2_preprocess_wASR(tmpDataConfig, SUB);
     end
 end
-
 
 if ismember(3,FunctionsToRun)
     % prepare for next step (can't update DataConfig in parallel).
@@ -125,7 +123,7 @@ if ismember(3,FunctionsToRun)
     %% adjust events so they're on the correct timeline.
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
-    parfor loopIdx = 1:totalSUBS
+    for loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
         X3_fixEvents(tmpDataConfig, SUB);
     end
@@ -140,7 +138,7 @@ if ismember(4,FunctionsToRun)
     % ASR removes or reduces periods of undue noisiness.
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
-    parfor loopIdx = 1:totalSUBS
+    for loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
         ICAmode = 'removeEyes'; 
         % 'removeEyes' removes the eye components
@@ -159,7 +157,7 @@ if ismember(5, FunctionsToRun)
     %% bin the epochs defined earlier.
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
-    parfor loopIdx = 1:totalSUBS
+    for loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
         X5_BinEpochs(tmpDataConfig, SUB);
     end
@@ -173,7 +171,7 @@ if ismember(6, FunctionsToRun)
     %% artifact rejection (according to config file).
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
-    parfor loopIdx = 1:totalSUBS
+    for loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
         imageType = 'none'; 
         % or 'pdf' but this fails in parallel mode because it demands too much memory.
@@ -191,7 +189,7 @@ if ismember(7, FunctionsToRun)
     %% and may as well extract the data here too.
     tmpDataConfig = DataConfig;
     totalSUBS = length(tmpDataConfig.SUB);
-    parfor loopIdx = 1:totalSUBS
+    for loopIdx = 1:totalSUBS
         SUB =  tmpDataConfig.SUB(loopIdx);
         imageType = 'none'; % you can select 'none' and will draw no images. 
         % if you want images, put 'png' here.
