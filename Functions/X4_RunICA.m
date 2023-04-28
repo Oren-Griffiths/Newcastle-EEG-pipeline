@@ -33,7 +33,7 @@ clearvars -except DataConfig SUB ICAmode;
         % runica can sometimes miscalculate rank and screw up. So make it
         % guess the rank, and force that rank onto the calculation using
         % 'pca' key value pair to avoid complex components that break things.
-        ChansForICA = 1:size(EEG.data, 1); % forcing ICA to all channels. 
+        ChansForICA = 1:size(EEG.data, 1); % forcing ICA to all channels. -
         EffectiveRank = rank(EEG.data(ChansForICA,:));
         
         EEG = pop_runica(EEG,'extended',0,'chanind', ChansForICA, 'pca',EffectiveRank);
@@ -78,8 +78,61 @@ clearvars -except DataConfig SUB ICAmode;
         end
         save2pdf([Subject_Path filesep 'Figures' filesep componentsText]);
         close all
-        
-        
+
+        % interpolate any missing channels from ASR process.
+        if strcmp(DataConfig.ASR_mode, 'interpolate') || strcmp(DataConfig.ASR_mode, 'reject_time')
+
+            % load in the removed channels.
+            remChanFile = [Subject_Path filesep 'OtherData' filesep SUB{1} '_removedChannels.mat'];
+            if exist(remChanFile) > 0
+                load(remChanFile);
+                % loads a struct variable called remChans
+                % with fields chanlocs and data
+                % empty if no chans were removed.
+                if ~isempty(remChans.chanlocs)
+                    % ok, let's do some interpolation.
+                    numChanRem = numel(remChans.chanlocs); % number removed
+                    numChanRetained = size(EEG.data, 1); % number retained
+                    disp('Interpolating ASR removed channels.');
+                    disp(['Retained channels:' num2str(numChanRetained) '.']);
+                    disp(['Removed channels:' num2str(numChanRem) '.']);
+
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    placeholder_data = ones(numChanRem ,size(EEG.data,2));
+                    EEG.chanlocs = [EEG.chanlocs, remChans.chanlocs];
+                    EEG.data = [EEG.data; placeholder_data];
+                    EEG.nbchan = EEG.nbchan + numChanRem;
+                    % do the spherical interpolation
+                    EEG = pop_interp(EEG, [EEG.nbchan - (numChanRem-1): EEG.nbchan], 'spherical');
+                    % ok, we'll need to reshape data back into original order.
+                    % for next steps, move from struct into table
+                    t_chanloc = struct2table(EEG.chanlocs);
+                    data_index = 1:height(t_chanloc);
+                    t_chanloc.data_index = [data_index'];
+                    % reorder the chanloc array
+                    t_chanloc = sortrows(t_chanloc,'urchan');
+                    % export the reordering index
+                    data_index = t_chanloc.data_index;
+                    % now delete the extra chanloc 0field, and revert to structure.
+                    t_chanloc = removevars(t_chanloc, 'data_index');
+                    EEG.chanlocs = table2struct(t_chanloc);
+
+                    % now reorder the raw data too.
+                    for thisChan = 1:size(EEG.data,1)
+                        EEG.data(thisChan,:) =  EEG.data(data_index(thisChan),:);
+                    end
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                else
+                    disp('Found removed channels file, but no channels removed');
+                end
+            else
+                disp('Cannot find removed channels file in OtherData');
+            end % checking for removed channels file
+        end % of interpolation mode check.
+
+        % save the post_ICA and interpolation file to disk.
+        EEG = pop_saveset( EEG, 'filename', [SUB{i} '_ds_addChans_cleanline_asr_lp_refs_event_weighted.set'],'filepath', Subject_Path);
+
     end % End subject loop
 
 end

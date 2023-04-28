@@ -66,7 +66,11 @@ clearvars -except DataConfig SUB;
         for k=1:EEG.trials
             [~,t0] = min(abs(cell2mat(EEG.epoch(k).eventlatency)));
             % epochvect(i) = EEG.epoch(i).eventtype{t0};
-            epochvect{k} = EEG.epoch(k).eventtype{t0};
+            if ~isempty(t0)
+                epochvect{k} = EEG.epoch(k).eventtype{t0};
+            else % 'contain' function can't search empty cells.
+                epochvect{k} = 'missing';
+            end
         end
         for thisCond = 1:length(allConds)
             if isempty(find(contains(epochvect,allConds{thisCond})))

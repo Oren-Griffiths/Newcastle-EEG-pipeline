@@ -1,12 +1,4 @@
 
-% updated for multithread 17.08.21
-% updated to allow relocating file to Functions folder. 18.08.21
-
-% updated 15.09.21 to print event code counts to data directory, as some
-% files are crashing later because missing event codes. Best to
-% catch this early. Prints .csv for raw values and a separate .csv for
-% trigger values that are > 256 and can be corrected to 0-255 range.
-
 function X3_fixEvents(DataConfig, SUB)
 % initialize
 close all;
@@ -58,26 +50,6 @@ for i = 1:length(SUB)
     
     %Load the continuous EEG data file outputted from Script #1a in .set EEGLAB file format
     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 1, 'setname', [SUB{i} '_ds_addChans_PREP_bp_refs'], 'gui', 'off');
-    
-    % sometimes EEGlab imports numbers (e.g. '23') as simple strings, and
-    % sometimes as longer strings (.e.g 'condition 23'). write some code to
-    % streamline 'conditionXX' to just 'XX'.
-    if size(DataConfig.RelevantCodes) > 0
-        % load a holder variable. 
-        EventLabels = DataConfig.RelevantCodes;
-        for thisLabel = 1:length(EventLabels)
-            % note what the code should be.
-            corrLabel = EventLabels{thisLabel};
-            % add "Condition " (inc space) after each entry.
-            EventLabels{thisLabel} = ['condition ' EventLabels{thisLabel} ];
-            % now replace "condition 23" with "23"
-            for ThisEvent = 1:numel(EEG.event)
-                if strcmp (EEG.event(ThisEvent).type,EventLabels(thisLabel))
-                    EEG.event(ThisEvent).type = corrLabel;
-                end
-            end %cycling vertically through candidate events.
-        end % cycling through relevant codes.
-    end % of check
 
     % if triggers are text (e.g. LSL) then adjust them here (so can
     % use "relevant codes" to limit ICA windows).
