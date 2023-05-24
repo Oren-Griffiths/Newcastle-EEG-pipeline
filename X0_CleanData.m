@@ -2,7 +2,7 @@
 global DataConfig
 
 % which experiment are we going to run?
-ConfigFileName = 'Config_P4B_after110';
+ConfigFileName = 'Config_P4B';
 
 % what do we need to do?
 ModeToPerform = 'AutoICA';
@@ -13,7 +13,7 @@ ModeToPerform = 'AutoICA';
 % You can write your own processing path if you want as well...
 % but note that things might break if you alter it too much.
 
-ASR_mode = 'reject_time';
+ASR_mode = 'interpolate';
 % 'reject_time' = do burst (time) rejection, but interpolate channels.
 % 'interpolate' = interpolate rejected time periods AND channels
 % 'reject_chan' = interpolate bad times, but reject bad chans.
@@ -37,7 +37,7 @@ switch ModeToPerform
 end
 
 %% You can manually enter a function sequence here too. %%%%%%%%%%%%%%%%%%%
-% FunctionsToRun = [2];
+% FunctionsToRun = [4];
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 ResetICAcomponents = 1;
@@ -142,12 +142,13 @@ if ismember(4,FunctionsToRun)
         SUB =  tmpDataConfig.SUB(loopIdx);
         ICAmode = 'removeEyes'; 
         % 'removeEyes' removes the eye components
-        % 'keepBrain' just keeps brain components. 
+        % 'keepBrain' just keeps brain components.
+        clear SUB
+        SUB{1}= '818';
         X4_RunICA(tmpDataConfig, SUB, ICAmode);
     end
     
 end
-
 
 if ismember(5, FunctionsToRun)
     % prepare for next step (can't update DataConfig in parallel).

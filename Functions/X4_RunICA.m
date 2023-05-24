@@ -34,7 +34,10 @@ clearvars -except DataConfig SUB ICAmode;
         % guess the rank, and force that rank onto the calculation using
         % 'pca' key value pair to avoid complex components that break things.
         ChansForICA = 1:size(EEG.data, 1); % forcing ICA to all channels. -
-        EffectiveRank = rank(EEG.data(ChansForICA,:));
+        % EffectiveRank = rank(EEG.data(ChansForICA,:));
+        % following Makoto's advice, use this instead: 
+        % https://sccn.ucsd.edu/wiki/Makoto's_useful_EEGLAB_code
+        EffectiveRank = sum(eig(cov(double(EEG.data'))) > 1E-7);
         
         EEG = pop_runica(EEG,'extended',0,'chanind', ChansForICA, 'pca',EffectiveRank);
         [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 1, 'setname', [SUB{i} '_ds_addChans_cleanline_asr_lp_refs_event_weighted'], 'savenew', [Subject_Path SUB{i} '_ds_addChans_cleanline_asr_lp_refs_event_weighted.set'], 'gui', 'off');

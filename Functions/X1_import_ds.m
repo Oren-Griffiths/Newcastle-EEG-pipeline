@@ -138,19 +138,21 @@ for i = 1:length(SUB)
     pop_saveset(EEG, 'filename', [SUB{i} '_ds.set'] , 'filepath', Subject_Path);
 
 
-    % For PREP, only calculate the HEOG and VEOG (no mastoid/average reference reference)
-    % choose relevant channel montage.
-    switch DataConfig.RawFileType{1}
-        case '.bdf'
-            NoRefChanLbls = [Current_File_Path filesep 'SupportingDocs' ...
-                filesep 'ChannelsFor' num2str(DataConfig.TotalChannels{1}) '_NoRef_BDF.txt'];
-        case '.xdf'
-            NoRefChanLbls = [Current_File_Path filesep 'SupportingDocs' ...
-                filesep 'ChannelsFor' num2str(DataConfig.TotalChannels{1}) '_NoRef_XDF.txt'];
+    % if no information came from the import, then add channel labels.
+    if isempty(EEG.chanlocs)
+        switch DataConfig.RawFileType{1}
+            case '.bdf'
+                NoRefChanLbls = [Current_File_Path filesep 'SupportingDocs' ...
+                    filesep 'ChannelsFor' num2str(DataConfig.TotalChannels{1}) '_NoRef_BDF.txt'];
+            case '.xdf'
+                NoRefChanLbls = [Current_File_Path filesep 'SupportingDocs' ...
+                    filesep 'ChannelsFor' num2str(DataConfig.TotalChannels{1}) '_NoRef_XDF.txt'];
+        end
+        % apply that montage.
+        EEG = pop_eegchanoperator( EEG, NoRefChanLbls, 'Saveas', 'off');
+        disp('Applied manual channel labels.')
     end
-    % apply that montage.
-    EEG = pop_eegchanoperator( EEG, NoRefChanLbls, 'Saveas', 'off');
-
+    
     % Add channel location information corresponding to the 3-D coordinates of the electrodes based on 10-10 International System site locations
     EEG = pop_chanedit(EEG, 'lookup',[Current_File_Path filesep 'SupportingDocs' filesep DataConfig.ChanLocs{1}]);
     pop_saveset(EEG, 'filename', [SUB{i} '_ds_addChans.set'] , 'filepath', Subject_Path);

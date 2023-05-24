@@ -1,14 +1,20 @@
 
 % parameters
+% keyChans = {'FC1', 'FC3', 'FC5', 'C1', 'C3', 'C5', 'F1', 'F3', 'F5'};
+keyChans = {'all'};
+% use 'all' for all scalp channels (i.e. global power).
 
-keyChans = 1:18;
-% for global field power
-
-% keyChans = [5, 26, 31, 4, 27, 2, 29];
-% for a set of 7 sensors centred on Fz
+%keyChans = [5, 26, 31, 4, 27, 2, 29];
+% for a set of 7 sensors centred on Fz (32 chan)
 % {FC1, FC2, Fz, F3, F4,  AF3, AF4};
 
+% for a set of sensors around FCz, 64 chan
+% {FC1, FC2, FCz, C1, C2, CZ};
+% {C3, C4, FC3, FC4, Fz1:4 }
+% keyChans = [4, 5, 10, 11, 12, 13, 39, 40, 45, 46, 47, 48, 49, 50];
+
 keyHz = [4 7]; % theta is 4-7Hz.
+% keyHz = [10 14]; % alpha is 10-14Hz.
 
 timeWindow = [0 300]; % N1 peak is ~110ms (but wavelet window is ~500ms)
 
@@ -20,23 +26,22 @@ timeWindow = [0 300]; % N1 peak is ~110ms (but wavelet window is ~500ms)
 %     'B12(13)'};
 
 % just bins 1-3. 
-allConditions = {'B1(' , 'B2(' , 'B3(' };
+allConditions = {'B1(' , 'B2(' , 'B3(', ...
+    'B4(', 'B5(' , 'B6(', ...
+    'B7('};
 % fixed values across all figures.
-colour_max = 5; % or 3
-colour_min = -5; % or -1
-colour_max_itc = 0.4;
+colour_max = 3; % or 3
+colour_min = -3; % or -1
+colour_max_itc = 0.5;
 colour_min_itc = 0;
 
 % global colour scheme
 colScheme = 'jet';
 
 % what's the relevant config file called?
-ConfigFileName = 'Config_UDN_VR';
+ConfigFileName = 'Config_P4B_justControls';
 
-%% header info in which we load in e.g. config information
-
-load('chanlocs.mat');
-
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Current_File_Path = pwd;
 addpath('Functions');
 ConfigFilePath = [Current_File_Path filesep 'SupportingDocs' filesep ConfigFileName '.xlsx'];
@@ -50,6 +55,23 @@ DataConfig = adjustConfigData(DataConfig);
 
 NoOfChans = DataConfig.TotalChannels{1};
 
+load('chanlocs.mat');
+
+% get channel numbers
+% that is, convert channel indices from channel names.
+% have done this assuming that all bins have the same channel location
+% structure, but robust to missing values for some bins.
+if strcmp(keyChans{1}, 'all')
+    keyChanIdx = DataConfig.firstScalp:DataConfig.lastScalp;
+else
+    for ThisChan = 1:length(keyChans)
+        if ~isempty(find(strcmp({chanlocs.labels}, keyChans{ThisChan})==1))
+            keyChanIdx(ThisChan) = find(strcmp({chanlocs.labels}, keyChans{ThisChan})==1);
+        end
+    end
+end
+
+
 % and open eeglab to access the EEGlab functions
 eeglab;
 % shorten variable name
@@ -61,7 +83,6 @@ for thisPID = 1:length(SUB)
     % some holder variable.
     filename = ['TF_output' filesep SUB{thisPID} '_TFdata.mat'];
     load(filename); % create variable tf_data
-    
     for thisCND = 1:length(allConditions)
         % want 64 chans, average over timeWindow, average over keyHz
         time_idx = (tf_data.cond(thisCND).times >= timeWindow(1)) & ...
@@ -96,55 +117,61 @@ save('TF_images/spatial_patient_itc.mat', 'spatial_patient_itc');
 
 for thisCND = 1:length(allConditions)
     % draw each figure for ersp
-figure;
-% just some wrangling with dimenions to make sure it's the 
-dataTopoplot = squeeze(mean(spatial_patient_ersp(:,thisCND,1:NoOfChans),1, 'omitnan'));
-topoplot(dataTopoplot(1:DataConfig.TotalChannels{1}), chanlocs(1:DataConfig.TotalChannels{1}));
-% sort out the colorBar
-colorbar;
-if ~isempty(colour_min) || ~isempty(colour_max)
-    caxis([colour_min, colour_max]);
-end
-colormap(colScheme);
-% name and save each figure.
-f = gcf;
-f.Units = 'inches';
-f.OuterPosition = [0.5 0.5 5.5 5.5]; % make the figure 5 inches in size.
-fig_filename = ['TF_images' filesep 'Patient_ersp_' allConditions{thisCND} '_TargetHzTopoplot.png'];
-disp(['Saving topoimage image ' fig_filename]);
-exportgraphics(f,fig_filename,'Resolution',300); % set to 300dpi and save.
-close(gcf);
+    figure;
+    % just some wrangling with dimenions to make sure it's the
+    dataTopoplot = squeeze(mean(spatial_patient_ersp(:,thisCND,1:NoOfChans),1, 'omitnan'));
+    % a quick check to see if the data variable is empty.
+    if sum(isnan(dataTopoplot)) == length(dataTopoplot)
+        % do nothing. Skip itc/ersp spatial plotting. variable is empty
+    else
 
-% and output a spreadsheet of these values too. 
-spreadsheetData = squeeze(spatial_patient_ersp(:,thisCND,:));
-excelFilename = ['TF_images' filesep 'spatial_patient_ersp.xlsx'];
-writematrix(spreadsheetData, excelFilename, 'Sheet', allConditions{thisCND});
-writecell(SUB', excelFilename, 'Sheet', 'SUBS');
+        topoplot(dataTopoplot(1:DataConfig.TotalChannels{1}), chanlocs(1:DataConfig.TotalChannels{1}));
+        % sort out the colorBar
+        colorbar;
+        if ~isempty(colour_min) || ~isempty(colour_max)
+            caxis([colour_min, colour_max]);
+        end
+        colormap(colScheme);
+        % name and save each figure.
+        f = gcf;
+        f.Units = 'inches';
+        f.OuterPosition = [0.5 0.5 5.5 5.5]; % make the figure 5 inches in size.
+        fig_filename = ['TF_images' filesep 'Patient_ersp_' allConditions{thisCND} '_TargetHzTopoplot.png'];
+        disp(['Saving topoimage image ' fig_filename]);
+        exportgraphics(f,fig_filename,'Resolution',300); % set to 300dpi and save.
+        close(gcf);
 
-% draw each figure for itc
-figure;
-dataTopoplot = squeeze(mean(abs(spatial_patient_itc(:,thisCND,1:NoOfChans)),1, 'omitnan'));
-topoplot(dataTopoplot(1:DataConfig.TotalChannels{1}), chanlocs(1:DataConfig.TotalChannels{1}));
-% colorBar
-colorbar;
-colormap(colScheme);
-caxis([colour_min_itc, colour_max_itc]);
+        % and output a spreadsheet of these values too.
+        spreadsheetData = squeeze(spatial_patient_ersp(:,thisCND,:));
+        excelFilename = ['TF_images' filesep 'spatial_patient_ersp.xlsx'];
+        writematrix(spreadsheetData, excelFilename, 'Sheet', allConditions{thisCND});
+        writecell(SUB', excelFilename, 'Sheet', 'SUBS');
 
-% name and save each figure.
-f = gcf;
-f.Units = 'inches';
-f.OuterPosition = [0.5 0.5 5.5 5.5]; % make the figure 5 inches in size.
-fig_filename = ['TF_images' filesep 'Patient_itc_' allConditions{thisCND} '_TargetHzTopoplot.png'];
-disp(['Saving topoimage image ' fig_filename]);
-exportgraphics(f,fig_filename,'Resolution',300); % set to 300dpi and save.
-close(gcf);
+        % draw each figure for itc
+        figure;
+        dataTopoplot = squeeze(mean(abs(spatial_patient_itc(:,thisCND,1:NoOfChans)),1, 'omitnan'));
+        topoplot(dataTopoplot(1:DataConfig.TotalChannels{1}), chanlocs(1:DataConfig.TotalChannels{1}));
+        % colorBar
+        colorbar;
+        colormap(colScheme);
+        caxis([colour_min_itc, colour_max_itc]);
 
-% and output a spreadsheet of these values too. 
-spreadsheetData = squeeze(abs(spatial_patient_itc(:,thisCND,:)));
-excelFilename = ['TF_images' filesep 'spatial_patient_itc.xlsx'];
-writematrix(spreadsheetData, excelFilename, 'Sheet', allConditions{thisCND});
-writecell(SUB', excelFilename, 'Sheet', 'SUBS');
-end
+        % name and save each figure.
+        f = gcf;
+        f.Units = 'inches';
+        f.OuterPosition = [0.5 0.5 5.5 5.5]; % make the figure 5 inches in size.
+        fig_filename = ['TF_images' filesep 'Patient_itc_' allConditions{thisCND} '_TargetHzTopoplot.png'];
+        disp(['Saving topoimage image ' fig_filename]);
+        exportgraphics(f,fig_filename,'Resolution',300); % set to 300dpi and save.
+        close(gcf);
+
+        % and output a spreadsheet of these values too.
+        spreadsheetData = squeeze(abs(spatial_patient_itc(:,thisCND,:)));
+        excelFilename = ['TF_images' filesep 'spatial_patient_itc.xlsx'];
+        writematrix(spreadsheetData, excelFilename, 'Sheet', allConditions{thisCND});
+        writecell(SUB', excelFilename, 'Sheet', 'SUBS');
+    end % end of empty check
+end % of thisCND loop
 
 
 %% goal #2, plot  theta spatial topo during ERP peak (100-200ms) for patients
@@ -152,7 +179,6 @@ end
 
 %% goal 3, grab mean time-freq plot for whole epoch, all freqs for patients
 % first, patients
-% keyChans = [11, 46, 47, 4, 39, 38, 37, 3, 36];
 
 for thisPID = 1:length(SUB)
     % loop through each needed file, load it, grab needed data, push it into
@@ -163,8 +189,8 @@ for thisPID = 1:length(SUB)
     for thisCND = 1:length(allConditions)
         % want just the key channel, all times, all freqs.
         disp(['processing_cnd_' allConditions{thisCND} '_in_PID_' SUB{thisPID} ])
-        for thisChan_idx = 1:length(keyChans)
-            thisChan = keyChans(thisChan_idx);
+        for thisChan_idx = 1:length(keyChanIdx)
+            thisChan = keyChanIdx(thisChan_idx);
             holder_ersp(thisChan_idx, :, :) = tf_data.cond(thisCND).chan(thisChan).ersp;
             holder_itc(thisChan_idx, :, :) = abs(tf_data.cond(thisCND).chan(thisChan).itc);
         end % of channel by channel loop

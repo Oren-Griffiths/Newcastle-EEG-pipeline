@@ -4,24 +4,26 @@
 
 %% Get the extra details from the user [i.e. change these values.]
 % what's the relevant config file called?
-ConfigFileName = 'Config_Danielle_051022';
+ConfigFileName = ['Config_P4B_justControls'];
 
 % 10:20 names of the channels you want. If you select more than one
 % channel, it will average across them (i.e. treat it as a single montage).
 % If you want to compare different channels/AOIs, run this script more
 % than once with different channels chosen each time.
 % for fronto-central montage
-keyChans = { 'Cz', 'C3', 'C4',  'FC1', 'FC2', 'Fz', 'F3', 'F4' };
+keyChans = {'F3'};
+% { 'Cz', 'C1', 'C2', 'C3', 'C4', 'FCz',  'FC1', 'FC2', 'FC3', 'FC4', ...
+%     'Fz', 'F1', 'F1', 'F3', 'F4' };
 % for parietal sites (p3a)
 % keyChans = { 'PO3', 'PO4', 'Pz',  'P3', 'P4', 'CP1', 'CP2' };
 
 % what time period (ms) do you want visualized. This will obviously break
 % if you choose an area large than the epoch declared in DataConfig, so
 % choose sensibly.
-wholeEpoch = [-200, 400];
+wholeEpoch = [-200, 600];
 
 % choose a time period you want to take the average across. Measured in ms.
-measureWindow = [100, 200];
+measureWindow = [90, 130];
 
 % if a person has less than X clean epochs are AR-rejection, then remove
 % them from the averaging process. Set X. Put empty '[]' to ignore min.
@@ -47,19 +49,19 @@ binContrast = [];
 % you may be forced to filter out HF noise again. You can do the same as
 % what you've done previously (type 'same'). Otherwise choose a value e.g.
 % 40Hz and enter it as a string '40'.
-extraLowPass = 'none';
+extraLowPass = '20';
 
 % add in a vector of how many samples to shift one or more bins (if, for
 % example, there is a triggering issue where one trigger waits a frame or
 % two and others do not). Should usually be empty. If there are values,
 % then you'll need to supply a number of samples per bin (in a vector),
 % e.g. for a 4 bin experiment where you want to shift bin 4 only [0,0,0,3];
-sampleCorrection = [0,0,0,0,0,0,0,0,0,0,0,0];
+sampleCorrection = [0,0,0,0,0,0,0,8];
 
 % do you want the output figures to show information about peak value and
 % latency (in ERP waveforms) and min/max channel values in the topoplots?
 % if you want this info, set variable to 1. Else leave as 0.
-showPeakInfo = 0;
+showPeakInfo = 1;
 % do you want to add a fine overlay of each individual to the grand average
 % waveforms (e.g. to check for presence of outliers)? If so, set to 1.
 showIndividualTraces = 1;
@@ -70,7 +72,7 @@ showIndividualTraces = 1;
 
 % For the visualizations, do you want to have a fixed y-axis? 
 % If not, leave it empty. 
-fixedYlim = [-5,5];
+fixedYlim = [-10,10];
 
 % can declare the colour scheme in advance (for topos). 
 colScheme = 'jet';
@@ -314,6 +316,25 @@ for k = 1:length(SUB)
         end % of skipping empty data sets
     end % of bin by bin loop.
 end % of subject by subject loop
+
+
+
+% clean out any empty bins.
+for thisBin = 1:NoOfBins
+    % calculate nans and not-nans per bin. 
+    if sum(ones(size(participantAverages{thisBin})), 'all') > ...
+            sum(isnan(participantAverages{thisBin}), 'all')
+        % do nothing. There's at least some real data here.
+    else
+        % no data at all. Need to change some variables.
+        participantAverages{thisBin} = [];
+        if ~isempty(binContrast)
+            binContrast(thisBin) = [];
+        end
+        epochCounts{thisBin} = [];
+        NoOfBins = NoOfBins - 1;
+    end
+end
 
 
 %% correct or adjust the data, if necessary
@@ -627,11 +648,11 @@ end
 % a set of six colours (which then repeat, if necessary)
 
 % which bins to contrast with each other?
-outFigs = {[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [2, 3, 8, 9]};
-condlbls = {'AudStand', 'AudDevRew', 'AudDevCtrl', ...
-    'VisStand', 'VisDevRew', 'VisDevCtrl', ...
-    'BaseAudStand', 'BaseAudDevRew', 'BaseAudDevCtrl', ...
-    'BaseVisStand', 'BaseVisDevRew', 'BaseVisDevCtrl'};
+outFigs = {[1, 2, 7, 8], [1, 2, 3, 4, 5, 6], [1, 2]};
+condlbls = {'Listen', 'Self0ms', 'Self25ms', ...
+    'Self50ms', 'Self75ms', 'Self100ms', ...
+    'Motor', 'Cued'};
+
 
 for thisFig = 1:length(outFigs)
     

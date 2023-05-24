@@ -77,8 +77,8 @@ for i = 1:length(SUB)
     % do ASR cleaning, but don't reject (just clean)
     % and even then, don't remove periods (via "extra" criterion, box 4)
     % just correct.
-    % after that correction is done, itnerpolate the missing channels. 
-    % and save a file in 'otherData' identifying which were interpreted. 
+    % after that correction is done, itnerpolate the missing channels.
+    % and save a file in 'otherData' identifying which were interpreted.
 
     [EEG,HP,BUR,removed_channels] = clean_artifacts(EEG, 'FlatlineCriterion',5,'ChannelCriterion',0.8,'LineNoiseCriterion',4, ...
         'Highpass',[0.25 0.75] ,'BurstCriterion','off','WindowCriterion','off', ...
@@ -93,7 +93,7 @@ for i = 1:length(SUB)
 
     % but need to decide if we're rejecting dirty data, or just cleaning.
     burstRej = 'on';
-    if strcmp(DataConfig.ASR_mode, 'interpolate') || strcmp(DataConfig.ASR_mode, 'reject_chan') 
+    if strcmp(DataConfig.ASR_mode, 'interpolate') || strcmp(DataConfig.ASR_mode, 'reject_chan')
         burstRej = 'off';
     end
 
@@ -108,39 +108,7 @@ for i = 1:length(SUB)
         % ASR removed some channels. Document which ones and their data.
         EEG.removedChannels.chanlocs = EEG.urchanlocs(removed_channels);
         EEG.removedChannels.data = rawEEG.data(removed_channels,:);
-        % ASR burst cleaning will reduce length of each data set, so
-        % accommodate that with a dummy variable (that will then be
-        % interpolated).
-%         placeholder_data = ones(sum(removed_channels),size(EEG.data,2));
-%         % (this will only work for this one data set...)
-%         DataConfig.lastScalp = DataConfig.lastScalp - numel(EEG.removedChannels.chanlocs);
-% 
-%         % interpolate, if that's requested.
-%         if strcmp(DataConfig.ASR_mode, 'interpolate') || strcmp(DataConfig.ASR_mode, 'reject_time') 
-%             EEG.chanlocs = [EEG.chanlocs, EEG.removedChannels.chanlocs];
-%             EEG.data = [EEG.data; placeholder_data];
-%             EEG.nbchan = EEG.nbchan + numel(EEG.removedChannels.chanlocs);
-%             % do the spherical interpolation
-%             EEG = pop_interp(EEG, [size(EEG.data,1) - (numel(EEG.removedChannels.chanlocs)-1): size(EEG.data,1)], 'spherical');
-%             % ok, we'll need to reshape data back into original order.
-%             % for next steps, move from struct into table
-%             t_chanloc = struct2table(EEG.chanlocs);
-%             data_index = 1:height(t_chanloc);
-%             t_chanloc.data_index = [data_index'];
-%             % reorder the chanloc array
-%             t_chanloc = sortrows(t_chanloc,'urchan');
-%             % export the reordering index
-%             data_index = t_chanloc.data_index; 
-%             % now delete the extra chanloc 0field, and revert to structure.
-%             t_chanloc = removevars(t_chanloc, 'data_index');
-%             EEG.chanlocs = table2struct(t_chanloc);
-% 
-%             % now reorder the raw data too.
-%             for thisChan = 1:size(EEG.data,1)
-%                 EEG.data(thisChan,:) =  EEG.data(data_index(thisChan),:);
-%             end
-% 
-%         end
+
         % done a few things, so check for consistency.
         EEG = eeg_checkset( EEG );
     else % no channels removed. But may need those fields.
@@ -160,11 +128,11 @@ for i = 1:length(SUB)
     % separately save the removed data.
     remChans.chanlocs = EEG.removedChannels.chanlocs;
     remChans.data = EEG.removedChannels.data;
-    remChanName = [Subject_Path filesep 'OtherData' filesep SUB{i} '_removedChannels.mat']; 
+    remChanName = [Subject_Path filesep 'OtherData' filesep SUB{i} '_removedChannels.mat'];
     save(remChanName, "remChans", '-mat');
     clear remChans remChanName;
 
-    %  May need basic SVT applied as 'windowCriterion' in ASR turned off. 
+    %  May need basic SVT applied as 'windowCriterion' in ASR turned off.
 
     %% only a low pass filter. Not really needed (high pass already done).
     EEG  = pop_basicfilter( EEG,  1:size(EEG.data,1) , 'Boundary', 'boundary', ...
@@ -172,7 +140,7 @@ for i = 1:length(SUB)
         'Design', 'butter', 'Filter', 'lowpass', 'Order',  DataConfig.FiltOrder{1}, 'RemoveDC', 'off' );
 
     %% save the output.
-    EEG = pop_saveset( EEG, 'filename', [SUB{i} '_ds_addChans_cleanline_asr_lp_refs.set'],  'filepath', Subject_Path); 
+    EEG = pop_saveset( EEG, 'filename', [SUB{i} '_ds_addChans_cleanline_asr_lp_refs.set'],  'filepath', Subject_Path);
 
     %% and now run some checks and visualize.
     % do simple FFT of pre-filtered data and post-filtered data.
@@ -184,17 +152,50 @@ for i = 1:length(SUB)
     unfiltFFT = mean(abs( fft(rawEEG.data,nfft,2)/size(rawEEG.data,2)).^2,1);
     filtFFT = mean(abs( fft(EEG.data,nfft,2)/size(EEG.data,2)).^2,1);
 
-    % if you need to do some debugging of drawing, save workspace now.
-    % save('Debug_workspace.mat');
 
+    % find index for 50Hz line noise.
+    lineNoise = 50;
+    [~, idx] = min(abs(hz-lineNoise));
+    tolerance = 5; % pull data from 10 bins either side.
+    noiseRange = [idx - tolerance, idx + tolerance];
+    linenoise_hz = [hz(noiseRange(1)),hz(noiseRange(2))];
+    compRange = [ idx - 8*tolerance     , idx - 6*tolerance   ];
+    compRange_hz = [hz(compRange(1)),hz(compRange(2))];
+    rawRatio = mean(unfiltFFT(noiseRange(1):noiseRange(2)),'all') / ...
+        mean(unfiltFFT(compRange(1):compRange(2)),'all');
+    filtRatio = mean(filtFFT(noiseRange(1):noiseRange(2)),'all') / ...
+        mean(filtFFT(compRange(1):compRange(2)),'all');
 
+    % if lineNoise still 10x larger than relevant comprison range, apply a
+    % notch filter directly.
+    if filtRatio > 10
+        disp('Data still dirty. Applying a notch filter directly.');
+
+        [EEG, com, b] = pop_eegfiltnew(EEG,...
+            'locutoff', 49 , ...
+            'hicutoff', 51 , ...
+            'revfilt',   1 );
+
+        filtFFT_notch = mean(abs( fft(EEG.data,nfft,2)/size(EEG.data,2)).^2,1);
+    else
+        disp('No additional notch filter needed. Cleanline FTW.');
+    end
 
     % subset the values for plotting
     plot_index = hz<60;
     % plot the values.
     figure;
-    line(hz(plot_index), unfiltFFT(plot_index), 'Color', 'k');
-    line(hz(plot_index), filtFFT(plot_index),  'Color', 'r');
+    line(hz(plot_index), unfiltFFT(plot_index), 'Color', 'black');
+    line(hz(plot_index), filtFFT(plot_index),  'Color', 'red');
+    if filtRatio > 10
+        % and thus we needed a second notch filter.
+        line(hz(plot_index), filtFFT_notch(plot_index),  'Color', 'green');
+    end
+    xline(linenoise_hz(1)   ,  'Color', 'blue', 'LineStyle', '-');
+    xline(linenoise_hz(2)   ,  'Color', 'blue', 'LineStyle', '-');
+    xline(compRange_hz(1)   ,  'Color', 'blue', 'LineStyle', ':');
+    xline(compRange_hz(2)   ,  'Color', 'blue', 'LineStyle', ':');
+
     % filtered plotted on top.
     % apply some sensible limits.
     y_max = max([ quantile(filtFFT,0.99),  quantile(unfiltFFT,0.99)]);

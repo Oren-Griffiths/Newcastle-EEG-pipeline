@@ -5,18 +5,21 @@
 
 % can be done with contains, so don't need all parts. 
 % somtimes triger 55 can be recorded as "condition55"
+% allConditions = {'B1(' , 'B2(' , 'B3(' , ...
+%     'B4(' , 'B5(' , 'B6(', 'B7(', 'B8(', ...
+%     'B9(', 'B10(', 'B11(', 'B12('};
+
 allConditions = {'B1(' , 'B2(' , 'B3(' , ...
-    'B4(' , 'B5(' , 'B6(', 'B7(', 'B8(', ...
-    'B9(', 'B10(', 'B11(', 'B12('};
+    'B4(' , 'B5(' , 'B6(', 'B7('};
 
 % which channels do you want to use? 
 % currently written to loop through all scalp channels. 
-keyChans = 1:32; 
+keyChans = 1:64; 
 
 %% header structure grabs file and config data
 
 % what's the relevant config file called?
-ConfigFileName = 'Config_Danielle_051022';
+ConfigFileName = 'Config_P4B';
 
 Current_File_Path = pwd;
 addpath('Functions');
@@ -40,7 +43,7 @@ SUB = DataConfig.SUB;
 for k = 1:length(SUB)
     tic;
     PIDfolder = [fileparts(pwd) filesep SUB{k}];
-    inputFile = [PIDfolder filesep SUB{k} '_ds_PREP_ica_corr_cbip_elist_bins_epoch_ar.set'];
+    inputFile = [PIDfolder filesep SUB{k} '_ds_addChans_cleanline_asr_lp_refs_event_weighted_epoch_bl_ar.set'];
     
     %% find each file and open it up
     EEG = pop_loadset('filename',  inputFile);
@@ -84,7 +87,7 @@ for k = 1:length(SUB)
     % keyChans = 1:64; 
     freqRange = [0 30];
     tempResolution = 200; % how many points to output on x-axis. (44s data, so 440 = 0.1s)
-    baseline = [-1000 0]; % baseline period measured in epoch time (ms)
+    baseline = []; % baseline period measured in epoch time (ms)
     
     % time-freq for data, per channel.
     % initialise some varialbes
@@ -93,18 +96,19 @@ for k = 1:length(SUB)
     
     for thisChan = keyChans       
         
-%         [ersp,itc,powbase,times,freqs,erspboot,itcboot,tfdata] = ...
-%             newtimef(data(thisChan,:,:),EEG.pnts, [tlimits], 256, cycles, ...
-%             'timesout', tempResolution,  'winsize', 128, ...
-%             'plotersp', 'off', 'plotitc', 'off', 'trialbase', 'on');
-        
+        [ersp,itc,powbase,times,freqs,erspboot,itcboot,tfdata] = ...
+            newtimef(data(thisChan,:,:),EEG.pnts, [tlimits], 256, cycles, ...
+            'plotersp', 'off', 'plotitc', 'off', 'trialbase', 'on');
+        % 'timesout', tempResolution,  'winsize', 128, ...
+
+
         % changed window size back to default (as don't have the luxury)
         % but can buy some freq precision by increasing padratio. 
         
-        [ersp,itc,powbase,times,freqs,erspboot,itcboot,tfdata] = ...
-            newtimef(data(thisChan,:,:),EEG.pnts, [tlimits], 256, cycles, ...
-            'timesout', tempResolution, 'padratio', 8, 'winsize', 80,  ...
-            'plotersp', 'off', 'plotitc', 'off', 'trialbase', 'on');
+%         [ersp,itc,powbase,times,freqs,erspboot,itcboot,tfdata] = ...
+%             newtimef(data(thisChan,:,:),EEG.pnts, [tlimits], 256, cycles, ...
+%             'timesout', tempResolution, 'padratio', 8, 'winsize', 80,  ...
+%             'plotersp', 'off', 'plotitc', 'off', 'trialbase', 'on');
         
         %     if you want to plot the outputs, then use code of this form.
         %     figure; contourf(times, freqs, ersp);
