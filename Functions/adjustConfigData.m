@@ -151,40 +151,57 @@ try
     DataConfig.LastSuffix = {};
     DataConfig.LastProcess = {};
     
-    if DataConfig.TotalChannels{1} == 32
-        DataConfig.KeyChans = num2cell([1 32 33 34 35 36 37 1 41]); % for 32 channel recording
-        DataConfig.ChanSetup = cellstr('ChannelsFor32wMastoids.txt');
-        DataConfig.AddCorrVEOG = cellstr('Add_ICAcorr_VEOGs_32.txt');
-        DataConfig.ChanLocs = cellstr('standard-10-5-cap385.elp');
-        DataConfig.rawVEOG = 39;
-        DataConfig.rawHEOG = 38;
-        DataConfig.corrVEOG = 43;
-        DataConfig.corrHEOG = 42;
-        DataConfig.cz_chan = 32;
-        DataConfig.firstScalp = 1;
-        DataConfig.lastScalp = 32;
-        DataConfig.o1 = 15;
-        DataConfig.o2 = 17;
-        DataConfig.oz = 16;
-        DataConfig.Fp1 = 1;
-        % First scalp chan, Last scalp chan, L mastoid, R mastoid, HEOG L,
-        % HEOG R, VEOG Low, VEOG high, lastChan]
-    else % 64 channel recording
-        DataConfig.ChanSetup = cellstr('ChannelsFor64wMastoids.txt');
-        DataConfig.KeyChans = num2cell([1 64 65 66 67 68 69 1 73]);
-        DataConfig.AddCorrVEOG = cellstr('Add_ICAcorr_VEOGs_64.txt');
-        DataConfig.ChanLocs = cellstr('standard-10-5-cap385.elp');
-        DataConfig.rawVEOG = 71;
-        DataConfig.rawHEOG = 70;
-        DataConfig.corrVEOG = 75;
-        DataConfig.corrHEOG = 74;
-        DataConfig.cz_chan = 51;
-        DataConfig.firstScalp = 1;
-        DataConfig.lastScalp = 64;
-        DataConfig.o1 = 27;
-        DataConfig.o2 = 64;
-        DataConfig.oz = 29;
-        DataConfig.Fp1 = 1;
+    switch DataConfig.TotalChannels{1}
+        case 23 % edf format from DSI VR headset 
+            DataConfig.KeyChans = num2cell([1 23 33 34 35 36 37 1 41]); % for 23 channel recording
+            % DataConfig.ChanSetup = cellstr('ChannelsFor32wMastoids.txt');
+            % DataConfig.AddCorrVEOG = cellstr('Add_ICAcorr_VEOGs_32.txt');
+            DataConfig.ChanLocs = cellstr('standard-10-5-cap385.elp');
+            DataConfig.rawVEOG = [];
+            DataConfig.rawHEOG = [];
+            DataConfig.corrVEOG = [];
+            DataConfig.corrHEOG = [];
+            DataConfig.cz_chan = 8;
+            DataConfig.firstScalp = 1;
+            DataConfig.lastScalp = 23;
+            DataConfig.o1 = 14;
+            DataConfig.o2 = 15;
+            DataConfig.oz = [];
+            DataConfig.Fp1 = 10;
+        case 32 % biosemi headset in 32 channel mode
+            DataConfig.KeyChans = num2cell([1 32 33 34 35 36 37 1 41]); % for 32 channel recording
+            DataConfig.ChanSetup = cellstr('ChannelsFor32wMastoids.txt');
+            DataConfig.AddCorrVEOG = cellstr('Add_ICAcorr_VEOGs_32.txt');
+            DataConfig.ChanLocs = cellstr('standard-10-5-cap385.elp');
+            DataConfig.rawVEOG = 39;
+            DataConfig.rawHEOG = 38;
+            DataConfig.corrVEOG = 43;
+            DataConfig.corrHEOG = 42;
+            DataConfig.cz_chan = 32;
+            DataConfig.firstScalp = 1;
+            DataConfig.lastScalp = 32;
+            DataConfig.o1 = 15;
+            DataConfig.o2 = 17;
+            DataConfig.oz = 16;
+            DataConfig.Fp1 = 1;
+            % First scalp chan, Last scalp chan, L mastoid, R mastoid, HEOG L,
+            % HEOG R, VEOG Low, VEOG high, lastChan]
+        case 64 % 64 channel recording using Biosemi
+            DataConfig.ChanSetup = cellstr('ChannelsFor64wMastoids.txt');
+            DataConfig.KeyChans = num2cell([1 64 65 66 67 68 69 1 73]);
+            DataConfig.AddCorrVEOG = cellstr('Add_ICAcorr_VEOGs_64.txt');
+            DataConfig.ChanLocs = cellstr('standard-10-5-cap385.elp');
+            DataConfig.rawVEOG = 71;
+            DataConfig.rawHEOG = 70;
+            DataConfig.corrVEOG = 75;
+            DataConfig.corrHEOG = 74;
+            DataConfig.cz_chan = 51;
+            DataConfig.firstScalp = 1;
+            DataConfig.lastScalp = 64;
+            DataConfig.o1 = 27;
+            DataConfig.o2 = 64;
+            DataConfig.oz = 29;
+            DataConfig.Fp1 = 1;
     end
     
 catch ME

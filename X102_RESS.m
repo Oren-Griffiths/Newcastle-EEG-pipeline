@@ -6,46 +6,61 @@
 % mikexcohen@gmail.com or rasa.gulbinaite@gmail.com
 
 clear
+% some experiment specific information about 
+BinsToTest = [1:9];
+binTimings = struct;
+%
+binTimings(1).baseline = [-6500, -5500];
+binTimings(1).measureWindow = [-6500 8700];
+%
+binTimings(2).baseline = [-6500, -5500];
+binTimings(2).measureWindow = [-6500 8700];
+%
+binTimings(3).baseline = [-6500, -5500];
+binTimings(3).measureWindow = [-6500 8700];
+%
+binTimings(4).baseline = [-6500, -5500];
+binTimings(4).measureWindow = [-6500 8700];
+%
+binTimings(5).baseline = [-7535, -6535];
+binTimings(5).measureWindow = [-7535, 8700];
+%
+binTimings(6).baseline = [-12282 -11282];
+binTimings(6).measureWindow = [-12282 8700];
+%
+binTimings(7).baseline = [-7535, -6535];
+binTimings(7).measureWindow = [-7535, 8700];
+%
+binTimings(8).baseline = [-12282 -11282];
+binTimings(8).measureWindow = [-12282 8700];
+%
+binTimings(9).baseline = [-6000 -5000]; 
+binTimings(9).measureWindow = [-5000 8700]; 
+%
 
 %% specify parameters
-for thisLoop = 1:4
+for thisLoop = BinsToTest
     
     % which experiment are we going to run?
-    ConfigFileName = 'Config_Natalie';
+    ConfigFileName =  'Config_CaitlinCharlotte_v2023';
     plotting = 0; % 1 = draw figs per person/freq; 0 = don't draw.
     extractData = 1; % 1 = pull raw data; 0 = use existing files.
     
-
-    
-    % the experiment had 15Hz, 17.14Hz, 20Hz, 24Hz.
-    %   15Hz and 24Hz are targets/distractors.
-    %   17.14 and 20Hz are the unexpected object.
-    peakFreqs = [15, 17.14, 20, 24]; % hz
+    peakFreqs = [13]; % hz
     
     % used for 'best-electrode' analyses
     electrode1 = 'Oz';
     
     % condition number, see below
-    % nominate some strings that are in the 'eventtype' field for each relevant
-    % epoch.
-    switch thisLoop
-        case 1
-            allConds = {'B1'};
-        case 2
-            allConds = {'B2'};
-        case 3
-            allConds = {'B3'};
-        case 4
-            allConds = {'B4'};
-    end
-    % allConds = {'B4'}; % B4 and B2 done at 10pm.
-    baseline = [-16000 -14000];
-    measureWindow = [0 14000];
-    
+    allConds = {['B' num2str(thisLoop)]};
+
+    baseline = binTimings(thisLoop).baseline;
+    measureWindow = binTimings(thisLoop).measureWindow;
+
     % parameters for RESS filters:
-    peakwidt  = .5; % FWHM at peak frequency
+    peakwidt  = 0.5; % FWHM at peak frequency
     neighfreq = 1;  % distance of neighboring frequencies away from peak frequency, +/- in Hz
-    neighwidt = 1;  % FWHM of the neighboring frequencies
+    neighwidt = 0.5;  % FWHM of the neighboring frequencies
     
     % parameter for FFT baseline corrections
     skipbins =  2; % .2 Hz (skips two bins; minimal smear anticipated)
@@ -85,7 +100,7 @@ for thisLoop = 1:4
             
             % do a quick check to see whether "best" electrode was removed in this
             % data set.
-            if isempty(find(strcmp({EEG.chanlocs.labels}, electrode1)==1))
+            if isempty(find(strcmp({EEG.chanlocs.labels}, electrode1)==1, 1))
                 OzMissing = 1;
             else
                 OzMissing = 0;
@@ -189,18 +204,22 @@ for thisLoop = 1:4
                     % and now let's get the power across time (snr, via Hilbert transform).
                     [filtdat,empVals] = filterFGx(ress_ts1',EEG.srate,peakFreqs(thisFreq),peakwidt,false);
                     hilbdat_ress =  abs(hilbert(filtdat')).^2';
-                    % now in epochs by samples format.
                     
-                    denom_ress = mean(hilbdat_ress(:,EEG.times < baseline(2)),2);
+                    
+                    % now in epochs by samples format.
+                    tidx_base = dsearchn(EEG.times',baseline');
+                    denom_ress = mean(hilbdat_ress(:,tidx_base(1):tidx_base(2)),2);
                     % denominator (epochs in dim 1).
                     
+                    snr_hilb_ress = []; 
                     for thisEpoch = 1:size(hilbdat_ress,1)
                         % report this in epochs by samples format.
-                        snr_hilb_ress(thisEpoch, :) = hilbdat_ress(thisEpoch,EEG.times > baseline(2))./denom_ress(thisEpoch);
+                        snr_hilb_ress(thisEpoch, :) = hilbdat_ress(thisEpoch,:)./denom_ress(thisEpoch);
                     end
+                    
                     % average across epochs
                     snr_hilb_ress = mean(snr_hilb_ress,1);
-                    times_hilb = EEG.times(EEG.times > baseline(2))';
+                    times_hilb = EEG.times';
                     
                     % and grab some data about spatial distribution of inferred RESS
                     % component.
@@ -226,14 +245,23 @@ for thisLoop = 1:4
                         figure;
                         map2plot = maps(:,comp2plot);
                         ress_normWeights = map2plot./max(map2plot);
-                        topoplot(map2plot./max(map2plot),EEG.chanlocs,'maplimits',[-.7 .7],'numcontour',0,'conv','on','electrodes','off','shading','interp');
-                        title([ 'RESS for ' num2str(peakFreqs(thisFreq)) ' Hz' ])
+                        if isreal(ress_normWeights)
+                            topoplot(ress_normWeights,EEG.chanlocs,'maplimits',[-.7 .7],'numcontour',0,'conv','on','electrodes','off','shading','interp');
+                            title([ 'RESS for ' num2str(peakFreqs(thisFreq)) ' Hz' ])
+                        else
+                            topoplot(abs(ress_normWeights),EEG.chanlocs,'maplimits',[-.7 .7],'numcontour',0,'conv','on','electrodes','off','shading','interp');
+                            title([ 'COMPLEX eigenvalues, RESS for ' num2str(peakFreqs(thisFreq)) ' Hz' ])
+                        end
+                        
                         
                         %subplot(243)
                         figure
                         map2plot = dataX(:,dsearchn(hz',peakFreqs(thisFreq)));
+                        if isreal(map2plot)
+                        else
+                            map2plot = abs(map2plot);
+                        end
                         topoplot(map2plot./max(map2plot),EEG.chanlocs,'maplimits',[-.7 .7],'numcontour',0,'conv','on','electrodes','off','emarker2',{find(strcmpi({EEG.chanlocs.labels},electrode1)) 'o' 'w' 4},'shading','interp');
-                        title([ 'RESS for ' num2str(peakFreqs(thisFreq)) ' Hz' ])
                         title([ 'Electrode power at ' num2str(peakFreqs(thisFreq)) ' Hz' ])
                         
                         % plot the filt_hilb for Ress and Oz
