@@ -10,43 +10,43 @@ clear
 BinsToTest = [1:9];
 binTimings = struct;
 %
-binTimings(1).baseline = [-6500, -5500];
-binTimings(1).measureWindow = [-6500 8700];
+binTimings(1).baseline = [-2000, 0];
+binTimings(1).measureWindow = [0 78000];
 %
-binTimings(2).baseline = [-6500, -5500];
-binTimings(2).measureWindow = [-6500 8700];
+binTimings(2).baseline = [-2000, 0];
+binTimings(2).measureWindow = [0 78000];
 %
-binTimings(3).baseline = [-6500, -5500];
-binTimings(3).measureWindow = [-6500 8700];
+binTimings(3).baseline = [-2000, 0];
+binTimings(3).measureWindow = [0 78000];
 %
-binTimings(4).baseline = [-6500, -5500];
-binTimings(4).measureWindow = [-6500 8700];
+binTimings(4).baseline = [-2000, 0];
+binTimings(4).measureWindow = [0 78000];
 %
-binTimings(5).baseline = [-7535, -6535];
-binTimings(5).measureWindow = [-7535, 8700];
+binTimings(5).baseline = [-2000, 0];
+binTimings(5).measureWindow = [0 78000];
 %
-binTimings(6).baseline = [-12282 -11282];
-binTimings(6).measureWindow = [-12282 8700];
+binTimings(6).baseline = [-2000, 0];
+binTimings(6).measureWindow = [0 78000];
 %
-binTimings(7).baseline = [-7535, -6535];
-binTimings(7).measureWindow = [-7535, 8700];
+binTimings(7).baseline = [-2000, 0];
+binTimings(7).measureWindow = [0 78000];
 %
-binTimings(8).baseline = [-12282 -11282];
-binTimings(8).measureWindow = [-12282 8700];
+binTimings(8).baseline = [-2000, 0];
+binTimings(8).measureWindow = [0 78000];
 %
-binTimings(9).baseline = [-6000 -5000]; 
-binTimings(9).measureWindow = [-5000 8700]; 
+binTimings(9).baseline = [-2000, 0];
+binTimings(9).measureWindow = [0 78000];
 %
 
 %% specify parameters
 for thisLoop = BinsToTest
     
     % which experiment are we going to run?
-    ConfigFileName =  'Config_CaitlinCharlotte_v2023';
+    ConfigFileName =  'Sal_Config_090623_test10';
     plotting = 0; % 1 = draw figs per person/freq; 0 = don't draw.
     extractData = 1; % 1 = pull raw data; 0 = use existing files.
     
-    peakFreqs = [13]; % hz
+    peakFreqs = [15]; % hz
     
     % used for 'best-electrode' analyses
     electrode1 = 'Oz';
@@ -339,7 +339,7 @@ for thisLoop = BinsToTest
             writecell(SUB_out,outFilename, 'Sheet', 'SUBs');
             writematrix(times_out, outFilename, 'Sheet', 'times');
             writematrix(hz_out, outFilename, 'Sheet', 'hz');
-            writematrix(out_ts, outFilename, 'Sheet' , ...
+            writematrix(out_ts', outFilename, 'Sheet' , ...
                 ['Hilb_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
             writematrix(out_psd, outFilename, 'Sheet' , ...
                 ['FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
