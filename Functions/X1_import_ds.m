@@ -147,11 +147,43 @@ for i = 1:length(SUB)
             case '.xdf'
                 NoRefChanLbls = [Current_File_Path filesep 'SupportingDocs' ...
                     filesep 'ChannelsFor' num2str(DataConfig.TotalChannels{1}) '_NoRef_XDF.txt'];
+            case '.edf'
+                % do nothing, already been through this during import.
         end
         % apply that montage.
         EEG = pop_eegchanoperator( EEG, NoRefChanLbls, 'Saveas', 'off');
         disp('Applied manual channel labels.')
+    else % just because it's not empty doesn't mean that we have useful labels.
+        % somewhat arbitrary choice, but most montages include one of these vals.
+        key_labels = {'F1', 'F2', 'Fz', 'Oz', 'O1', 'O2', 'C1', 'C2', 'Cz'};
+        key_labels_ind = ones(length(key_labels), 1);
+        % start at last entry and check for presence, one by one.
+        for thisLbl = length(key_labels):-1:1
+            if isempty(find(strcmp(  {EEG.chanlocs.labels}, key_labels{thisLbl}  )==1))
+            key_labels_ind(thisLbl) = [];
+            % if an element is absent, it will enter an empty value and
+            % effectively delete that item. So all empty = empty matrix.
+            end
+        end
+        
+        if isempty(key_labels_ind) % then wrong labels used in file.
+            % so apply the condition labels as if chanlocs wasn't there.
+            switch DataConfig.RawFileType{1}
+                case '.bdf'
+                    NoRefChanLbls = [Current_File_Path filesep 'SupportingDocs' ...
+                        filesep 'ChannelsFor' num2str(DataConfig.TotalChannels{1}) '_NoRef_BDF.txt'];
+                case '.xdf'
+                    NoRefChanLbls = [Current_File_Path filesep 'SupportingDocs' ...
+                        filesep 'ChannelsFor' num2str(DataConfig.TotalChannels{1}) '_NoRef_XDF.txt'];
+                case '.edf'
+                    % do nothing, already been through this during import.
+            end
+            % apply that montage.
+            EEG = pop_eegchanoperator( EEG, NoRefChanLbls, 'Saveas', 'off');
+            disp('Applied manual channel labels.')
+        end
     end
+    
     
     % Add channel location information corresponding to the 3-D coordinates of the electrodes based on 10-10 International System site locations
     EEG = pop_chanedit(EEG, 'lookup',[Current_File_Path filesep 'SupportingDocs' filesep DataConfig.ChanLocs{1}]);
