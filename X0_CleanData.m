@@ -2,7 +2,7 @@
 global DataConfig
 
 % which experiment are we going to run?
-ConfigFileName = 'Config_P4B';
+ConfigFileName = 'Sal_Config_090623_test10';
 
 % what do we need to do?
 ModeToPerform = 'AutoICA';
@@ -13,7 +13,7 @@ ModeToPerform = 'AutoICA';
 % You can write your own processing path if you want as well...
 % but note that things might break if you alter it too much.
 
-ASR_mode = 'interpolate';
+ASR_mode = 'reject_chan';
 % 'reject_time' = do burst (time) rejection, but interpolate channels.
 % 'interpolate' = interpolate rejected time periods AND channels
 % 'reject_chan' = interpolate bad times, but reject bad chans.
@@ -143,8 +143,6 @@ if ismember(4,FunctionsToRun)
         ICAmode = 'removeEyes'; 
         % 'removeEyes' removes the eye components
         % 'keepBrain' just keeps brain components.
-        clear SUB
-        SUB{1}= '818';
         X4_RunICA(tmpDataConfig, SUB, ICAmode);
     end
     
