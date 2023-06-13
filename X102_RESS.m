@@ -6,7 +6,7 @@
 % mikexcohen@gmail.com or rasa.gulbinaite@gmail.com
 
 clear
-% some experiment specific information about 
+% some experiment specific information about
 BinsToTest = [1:9];
 binTimings = struct;
 %
@@ -37,48 +37,54 @@ binTimings(8).measureWindow = [0 78000];
 binTimings(9).baseline = [-2000, 0];
 binTimings(9).measureWindow = [0 78000];
 %
+%% other fixed parameters
+
+% which experiment are we going to run?
+ConfigFileName =  'Sal_Config_090623';
+plotting = 0; % 1 = draw figs per person/freq; 0 = don't draw.
+extractData = 0; % 1 = pull raw data; 0 = use existing files.
+
+peakFreqs = [15]; % hz
+
+% used for 'best-electrode' analyses
+electrode1 = 'Oz';
+
+% define key to pull individual bins from EEG epoch structure.
+for k = 1:length(BinsToTest)
+    allConds{k} = ['B' num2str(BinsToTest(k))];
+end
+
+% parameters for RESS filters:
+peakwidt  = 0.5; % FWHM at peak frequency
+neighfreq = 1;  % distance of neighboring frequencies away from peak frequency, +/- in Hz
+neighwidt = 0.5;  % FWHM of the neighboring frequencies
+
+% parameter for FFT baseline corrections
+skipbins =  2; % .2 Hz (skips two bins; minimal smear anticipated)
+numbins  = 10+skipbins; %  1 Hz. Again, assumes minimal smear.
+
+%% setup the study level configuration details.
+Current_File_Path = pwd;
+addpath('Functions');
+ConfigFilePath = [Current_File_Path filesep 'SupportingDocs' filesep ConfigFileName '.xlsx'];
+Options = detectImportOptions(ConfigFilePath);
+
+for k = 1:numel(Options.VariableTypes)
+    Options.VariableTypes{k} = 'char';
+end
+DataConfig = table2struct(readtable(ConfigFilePath, Options));
+
+DataConfig = adjustConfigData(DataConfig);
+SUB = DataConfig.SUB;
 
 %% specify parameters
-for thisLoop = BinsToTest
+for counter = 1:length(BinsToTest)
+    % allows us to test subsets of the bins. 
+    thisCond = BinsToTest(counter);
     
-    % which experiment are we going to run?
-    ConfigFileName =  'Sal_Config_090623_test10';
-    plotting = 0; % 1 = draw figs per person/freq; 0 = don't draw.
-    extractData = 1; % 1 = pull raw data; 0 = use existing files.
-    
-    peakFreqs = [15]; % hz
-    
-    % used for 'best-electrode' analyses
-    electrode1 = 'Oz';
-    
-    % condition number, see below
-    allConds = {['B' num2str(thisLoop)]};
-
-    baseline = binTimings(thisLoop).baseline;
-    measureWindow = binTimings(thisLoop).measureWindow;
-
-    % parameters for RESS filters:
-    peakwidt  = 0.5; % FWHM at peak frequency
-    neighfreq = 1;  % distance of neighboring frequencies away from peak frequency, +/- in Hz
-    neighwidt = 0.5;  % FWHM of the neighboring frequencies
-    
-    % parameter for FFT baseline corrections
-    skipbins =  2; % .2 Hz (skips two bins; minimal smear anticipated)
-    numbins  = 10+skipbins; %  1 Hz. Again, assumes minimal smear.
-    
-    %% setup the study level configuration details.
-    Current_File_Path = pwd;
-    addpath('Functions');
-    ConfigFilePath = [Current_File_Path filesep 'SupportingDocs' filesep ConfigFileName '.xlsx'];
-    Options = detectImportOptions(ConfigFilePath);
-    
-    for k = 1:numel(Options.VariableTypes)
-        Options.VariableTypes{k} = 'char';
-    end
-    DataConfig = table2struct(readtable(ConfigFilePath, Options));
-    
-    DataConfig = adjustConfigData(DataConfig);
-    SUB = DataConfig.SUB;
+% baselining details
+baseline = binTimings(thisCond).baseline;
+measureWindow = binTimings(thisCond).measureWindow;
     
     if extractData == 1
         %% start the subject by subject loop (thisSUB).
@@ -95,8 +101,10 @@ for thisLoop = BinsToTest
             disp(FileToOpen);
             
             EEG = pop_loadset( 'filename', FileToOpen, 'filepath', Subject_Path);
-            % and remove any non-scalp data (not needed with Newcastle preprocessing).
-            % EEG = pop_select(EEG, 'channel',[ 1:32]);
+            % and remove any non-scalp data (not usually needed with Newcastle preprocessing).
+            if EEG.nbchan > DataConfig.lastScalp
+                EEG = pop_select(EEG, 'channel',[DataConfig.firstScalp:DataConfig.lastScalp]);
+            end
             
             % do a quick check to see whether "best" electrode was removed in this
             % data set.
@@ -124,21 +132,30 @@ for thisLoop = BinsToTest
                 nfft = ceil( EEG.srate/.1 ); % .1 Hz resolution
                 tidx = dsearchn(EEG.times',measureWindow'); % we use data from .5-10 seconds, to avoid using the stimulus transient
                 
-                for thisCond = 1:length(allConds)
-                    if isempty(find(contains(epochvect,allConds{thisCond})))
-                        index_allConds{thisCond} = 0;
-                    else
-                        index_allConds{thisCond} = find(contains(epochvect,allConds{thisCond}));
-                    end
+                % find the relevant epochs.
+                if isempty(find(contains(epochvect,allConds{counter})))
+                    index = [];
+                else
+                    index = find(contains(epochvect,allConds{counter}));
                 end
-                % combine all the found epochs
-                index = index_allConds{1};
-                if length(index_allConds) > 1
-                    for thisEpoch = 2:length(index_allConds)
-                        index = union(index, index_allConds{thisEpoch});
-                    end
-                end
-                index = index(index>0); % remove any empty searches
+                
+                % extra code to help manage when you want to aggregate
+                % across multiple bins
+                %                 for thisCond = 1:length(allConds)
+                %                     if isempty(find(contains(epochvect,allConds{thisCond})))
+                %                         index_allConds{thisCond} = 0;
+                %                     else
+                %                         index_allConds{thisCond} = find(contains(epochvect,allConds{thisCond}));
+                %                     end
+                %                 end
+                %                 % combine all the found epochs
+                %                 index = index_allConds{1};
+                %                 if length(index_allConds) > 1
+                %                     for thisEpoch = 2:length(index_allConds)
+                %                         index = union(index, index_allConds{thisEpoch});
+                %                     end
+                %                 end
+                %                 index = index(index>0); % remove any empty searches
                 
                 % check to see that there are actually epochs available.
                 if isempty(index)
@@ -188,7 +205,7 @@ for thisLoop = BinsToTest
                     
                     %% compute SNR spectrum
                     
-                    ressx = mean(abs( fft(ress_ts1(tidx(1):tidx(2),:),nfft,1)/diff(tidx) ).^2,   2    );
+                    ressx = mean(abs( fft(ress_ts1(tidx(1):tidx(2),:),nfft,1)/diff(tidx) ).^2,   2 , 'omitnan'   );
                     
                     [snrR,snrE] = deal(zeros(size(hz)));
                     % skipbins =  5; % ignore for baseline correction
@@ -205,20 +222,19 @@ for thisLoop = BinsToTest
                     [filtdat,empVals] = filterFGx(ress_ts1',EEG.srate,peakFreqs(thisFreq),peakwidt,false);
                     hilbdat_ress =  abs(hilbert(filtdat')).^2';
                     
-                    
                     % now in epochs by samples format.
                     tidx_base = dsearchn(EEG.times',baseline');
                     denom_ress = mean(hilbdat_ress(:,tidx_base(1):tidx_base(2)),2);
                     % denominator (epochs in dim 1).
                     
-                    snr_hilb_ress = []; 
+                    snr_hilb_ress = [];
                     for thisEpoch = 1:size(hilbdat_ress,1)
                         % report this in epochs by samples format.
                         snr_hilb_ress(thisEpoch, :) = hilbdat_ress(thisEpoch,:)./denom_ress(thisEpoch);
                     end
                     
                     % average across epochs
-                    snr_hilb_ress = mean(snr_hilb_ress,1);
+                    snr_hilb_ress = mean(snr_hilb_ress,1, 'omitnan');
                     times_hilb = EEG.times';
                     
                     % and grab some data about spatial distribution of inferred RESS
@@ -276,32 +292,53 @@ for thisLoop = BinsToTest
                     end
                     
                     %% and output the saved data series.
-                    temp = char(string(allConds));
-                    condLbl = temp(:)';
+                    % some code specific to "all bins chosen" mode
+%                     temp = char(string(allConds));
+%                     condLbl = temp(:)';
+                    condLbl = allConds{counter};
                     outFilename = [Subject_Path filesep ...
                         SUB{thisSUB} '_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' ...
                         condLbl '.mat'];
                     % and out it goes.
                     save(outFilename,'snr_hilb_ress','times_hilb', 'ressx', 'snrR' , 'hz', ...
                         'ress_normWeights', 'chanlocs');
+                    % organized by subject and bin. 
+                    globalData.Hilbert{thisSUB, counter} = snr_hilb_ress; % mean time series
+                    globalData.FFT{thisSUB, counter} = snrR; % mean FFT
+                    globalData.Weights{thisSUB} = ress_normWeights;
+                    globalData.Chans{thisSUB} = chanlocs;
+                    % grab header info
+                    if  counter == 1 % first bin to be processed.
+                        globalData.Weights{thisSUB} = ress_normWeights;
+                        globalData.Chans{thisSUB} = chanlocs;
+                        if thisSUB == 1 % first participant to be processed.
+                            globalData.hz = hz;
+                            globalData.times_hilb = times_hilb;
+                        end
+                    end
                 end % of skipping out of a no-epoch data set.
             end % of freq by freq loop.
         end % of subject by subject loop.
     end % of decision not to extract data
-    
+end% of condition by condition loop
+
     % now go subject by subject and generate a time-by-SUB power spreadsheet
     % one per condition and per frequency.
     
-    % these variables defined above.
-    % peakFreqs = [15, 17.14, 20, 24]; % hz
-    % allConds = {'B1' , 'B2' , 'B3' , 'B4' , 'B1B2B3B4'};
-    % SUB = DataConfig.SUB;
     
     % load one file to initialise some basic values
     Subject_Path = [fileparts(pwd) filesep SUB{1}];
+    
     openFile = [Subject_Path filesep SUB{1} '_' num2str(peakFreqs(1)) 'Hz_Cond' ...
         allConds{1}  '.mat'];
-    load(openFile);
+ 
+    % this should be a while loop... 
+    if exist(openFile) > 0
+        load(openFile);
+    else
+        disp('Missing Initial file.');
+    end
+    %
     pnts_out = length(times_hilb);
     times_out = times_hilb;
     hz_out = hz;
@@ -349,7 +386,5 @@ for thisLoop = BinsToTest
             outFilename = ['RESS_output' filesep 'FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.mat'];
             save(outFilename, 'out_psd');
         end % of thisFreq loop
-    end % of thisCond loop
-    
-end % of extra loop across all conditions individually
+    end % of condition by condition loop
 
