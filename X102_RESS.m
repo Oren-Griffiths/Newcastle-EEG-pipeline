@@ -11,7 +11,7 @@ clear
 %% other fixed parameters
 
 % which experiment are we going to run?
-ConfigFileName =  'Sal_Config_090623';
+ConfigFileName = 'HPRnet3_wTraining_140623';
 plotting = 0; % 1 = draw figs per person/freq; 0 = don't draw.
 extractData = 1; % 1 = pull raw data; 0 = use existing files.
 
@@ -389,6 +389,7 @@ openFile = [Subject_Path filesep SUB{1} '_' num2str(peakFreqs(1)) 'Hz_Cond' ...
     allConds{1}  '.mat'];
 
 % this should be a while loop...
+openFile = [Subject_Path filesep '1_15Hz_CondB7.mat'];
 if exist(openFile) > 0
     load(openFile);
 else
@@ -412,6 +413,9 @@ end
 
 for thisCond = 1:length(allConds)
     for thisFreq = 1:length(peakFreqs)
+        out_ts = NaN(length(SUB),length(times_hilb));
+        out_psd = NaN(length(SUB),length(hz));
+        
         for thisSUB = 1:length(SUB)
             disp(['loading SUB' SUB{thisSUB}]);
             % load a preprocessed file.
