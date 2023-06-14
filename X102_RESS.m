@@ -6,36 +6,7 @@
 % mikexcohen@gmail.com or rasa.gulbinaite@gmail.com
 
 clear
-% some experiment specific information about
-BinsToTest = [1:9];
-binTimings = struct;
-%
-binTimings(1).baseline = [-2000, 0];
-binTimings(1).measureWindow = [0 78000];
-%
-binTimings(2).baseline = [-2000, 0];
-binTimings(2).measureWindow = [0 78000];
-%
-binTimings(3).baseline = [-2000, 0];
-binTimings(3).measureWindow = [0 78000];
-%
-binTimings(4).baseline = [-2000, 0];
-binTimings(4).measureWindow = [0 78000];
-%
-binTimings(5).baseline = [-2000, 0];
-binTimings(5).measureWindow = [0 78000];
-%
-binTimings(6).baseline = [-2000, 0];
-binTimings(6).measureWindow = [0 78000];
-%
-binTimings(7).baseline = [-2000, 0];
-binTimings(7).measureWindow = [0 78000];
-%
-binTimings(8).baseline = [-2000, 0];
-binTimings(8).measureWindow = [0 78000];
-%
-binTimings(9).baseline = [-2000, 0];
-binTimings(9).measureWindow = [0 78000];
+
 %
 %% other fixed parameters
 
@@ -44,7 +15,12 @@ ConfigFileName =  'Sal_Config_090623';
 plotting = 0; % 1 = draw figs per person/freq; 0 = don't draw.
 extractData = 1; % 1 = pull raw data; 0 = use existing files.
 
+% main parameters
 peakFreqs = [15]; % hz
+RESSchans = {'all'}; % can have a cell array of names, or 'all', or [] = all
+BinsToTest = [1:9]; % which "bins"/epochs are you RESS/FFT/Hilb-ing?
+customBins = 0; % if customBins = 1, you will need to specify measurement 
+% and baseline windows. 
 
 % used for 'best-electrode' analyses
 electrode1 = 'Oz';
@@ -85,10 +61,48 @@ globalData.Hilbert = {};
 globalData.FFT = {};
 globalData.Weights = {};
 globalData.Chans = {};
-   
+  
+%% you have the option of custom measurement (FFT) and baseline (Hilb) periods.  
+binTimings = struct;
+if customBins == 0
+    % import from DataConfig file.
+    for k = 1:length(BinsToTest)
+        thisBin = BinsToTest(k);
+        binTimings(thisBin).baseline = [DataConfig.BaselineMin{1},DataConfig.BaselineMax{1} ];
+        binTimings(thisBin).measureWindow = [DataConfig.BaselineMax{1}, DataConfig.EpochMax{1}];
+    end
+else % specify in the format below.
+    
+    %
+    binTimings(1).baseline = [-2000, 0];
+    binTimings(1).measureWindow = [0 78000];
+    %
+    binTimings(2).baseline = [-2000, 0];
+    binTimings(2).measureWindow = [0 78000];
+    %
+    binTimings(3).baseline = [-2000, 0];
+    binTimings(3).measureWindow = [0 78000];
+    %
+    binTimings(4).baseline = [-2000, 0];
+    binTimings(4).measureWindow = [0 78000];
+    %
+    binTimings(5).baseline = [-2000, 0];
+    binTimings(5).measureWindow = [0 78000];
+    %
+    binTimings(6).baseline = [-2000, 0];
+    binTimings(6).measureWindow = [0 78000];
+    %
+    binTimings(7).baseline = [-2000, 0];
+    binTimings(7).measureWindow = [0 78000];
+    %
+    binTimings(8).baseline = [-2000, 0];
+    binTimings(8).measureWindow = [0 78000];
+    %
+    binTimings(9).baseline = [-2000, 0];
+    binTimings(9).measureWindow = [0 78000];
+end
 
-
-%% specify parameters
+%% start the analysis. 
 for counter = 1:length(BinsToTest)
     % allows us to test subsets of the bins.
     thisCond = BinsToTest(counter);
@@ -182,8 +196,21 @@ for counter = 1:length(BinsToTest)
                     
                 else
                     
-                    % finally pull out the needed data.
-                    data  = EEG.data(:,:,index);
+                                        % finally pull out the needed data.
+                    % but filter in only the channels you need.
+                    if isempty(RESSchans)
+                        % default is all channels included
+                        data  = EEG.data(:,:,index);
+                    elseif contains(RESSchans, 'all')
+                        % you can specifically include all channels
+                        data  = EEG.data(:,:,index);
+                    else % we need to find the intersection of the two cell arrays.
+                        temp = struct2cell(EEG.chanlocs);
+                        listOfChans = squeeze(temp(1,1,:));
+                        [C,ia,ib] = intersect(listOfChans,RESSchans); 
+                        EEG = pop_select( EEG, 'channel',listOfChans(ia));
+                        data = EEG.data(:,:,index);
+                    end
                     
                     dataX = mean(abs( fft(data(:,tidx(1):tidx(2),:),nfft,2)/diff(tidx) ).^2,3);
                     hz    = linspace(0,EEG.srate,nfft);
