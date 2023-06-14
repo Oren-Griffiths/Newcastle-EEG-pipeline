@@ -152,6 +152,25 @@ try
     DataConfig.LastProcess = {};
     
     switch DataConfig.TotalChannels{1}
+        case 20 % 32 channels but used with VR.
+            DataConfig.ChanSetup = cellstr('ChannelsFor20_NoRef_XDF.txt');
+            DataConfig.KeyChans = num2cell([1 20 21 22 23 24 25 1 29]); % for 32 channel recording
+            % First scalp chan, Last scalp chan, L mastoid, R mastoid, HEOG L,
+            % HEOG R, VEOG Low, VEOG high, lastChan]            
+            DataConfig.AddCorrVEOG = cellstr('Add_ICAcorr_VEOGs_20.txt');
+            DataConfig.ChanLocs = cellstr('standard-10-5-cap385.elp');
+            DataConfig.rawVEOG = 27;
+            DataConfig.rawHEOG = 26;
+            DataConfig.corrVEOG = 31;
+            DataConfig.corrHEOG = 30;
+            DataConfig.cz_chan = 7;
+            DataConfig.firstScalp = 1;
+            DataConfig.lastScalp = 20;
+            DataConfig.o1 = 10;
+            DataConfig.o2 = 12;
+            DataConfig.oz = 11;
+            DataConfig.Fp1 = 1;
+        
         case 23 % edf format from DSI VR headset 
             DataConfig.KeyChans = num2cell([1 23 33 34 35 36 37 1 41]); % for 23 channel recording
             % DataConfig.ChanSetup = cellstr('ChannelsFor32wMastoids.txt');
