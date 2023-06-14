@@ -108,6 +108,7 @@ if doPlots == 1
     figInfo(1).binNos = [1,2,3];
     figInfo(1).yLimits = [];
     figInfo(1).useBaseline = 1; % 1 for include baseline, 0 for not.
+    figInfo(1).dependMeans = false;
     %
     figInfo(2).title = 'Control Trial';
     figInfo(2).bins = {'NoCue', 'Valid', 'Invalid'};
@@ -117,6 +118,7 @@ if doPlots == 1
     figInfo(2).binNos = [4,5,6];
     figInfo(2).yLimits = [];
     figInfo(2).useBaseline = 1; % 1 for include baseline, 0 for not.
+    figInfo(2).dependMeans = false;
     %
     figInfo(3).title = 'Training Trials';
     figInfo(3).bins = {'NoCue', 'Valid', 'Invalid'};
@@ -126,6 +128,7 @@ if doPlots == 1
     figInfo(3).binNos = [7,8,9];
     figInfo(3).yLimits = [];
     figInfo(3).useBaseline = 1; % 1 for include baseline, 0 for not.
+    figInfo(3).dependMeans = false;
     %
     figInfo(4).title = 'ValidityTraining_PermTests';
     figInfo(4).bins = {'Valid', 'Invalid'};
@@ -135,6 +138,7 @@ if doPlots == 1
     figInfo(4).binNos = [8,9];
     figInfo(4).yLimits = [];
     figInfo(4).useBaseline = 1; % 1 for include baseline, 0 for not.
+    figInfo(4).dependMeans = false;
     %
     figInfo(5).title = 'ValidityCriticalTest_PermTests';
     figInfo(5).bins = {'Valid', 'Invalid'};
@@ -144,6 +148,7 @@ if doPlots == 1
     figInfo(5).binNos = [2,3];
     figInfo(5).yLimits = [];
     figInfo(5).useBaseline = 1; % 1 for include baseline, 0 for not.
+    figInfo(5).dependMeans = false;
     %
     figInfo(6).title = 'ValidityControlTest_PermTests';
     figInfo(6).bins = {'Valid', 'Invalid'};
@@ -153,6 +158,7 @@ if doPlots == 1
     figInfo(6).binNos = [5,6];
     figInfo(6).yLimits = [];
     figInfo(6).useBaseline = 1; % 1 for include baseline, 0 for not.
+    figInfo(6).dependMeans = false;
 
     % and if you want a second figure, put that info here.
 
@@ -169,6 +175,7 @@ if doPlots == 1
         binNos = figInfo(thisFig).binNos;
         yLimits = figInfo(thisFig).yLimits;
         useBaseline = figInfo(thisFig).useBaseline;
+        dependMeans = figInfo(thisFig).dependMeans;
 
         figure;
         hold on;
@@ -248,10 +255,16 @@ if doPlots == 1
             % so any subjects with NaN data must go. 
             findNaNs_1 = any(isnan(comparisonData{1}),2);
             findNaNs_2 = any(isnan(comparisonData{2}),2);
-            allNaNs = or(findNaNs_1,findNaNs_2);
-            comparisonData{1}(allNaNs,:) = [];
-            comparisonData{2}(allNaNs,:) = [];
-
+            if dependMeans == true
+                allNaNs = or(findNaNs_1,findNaNs_2);
+                comparisonData{1}(allNaNs,:) = [];
+                comparisonData{2}(allNaNs,:) = [];
+            else
+                comparisonData{1}(findNaNs_1,:) = [];
+                comparisonData{2}(findNaNs_2,:) = [];
+            end
+            
+            
             % how many samples do we have? 
             NoOfSamples = length(comparisonTimes{1});
 
@@ -262,7 +275,7 @@ if doPlots == 1
             disp('Performing cluster-based permutation test. Will take a minute.');
 
             [clusters, p_values, t_sums, permutation_distribution ] = ...
-                permutest(comparisonData{1}',comparisonData{2}',true,0.05,10000,true,10);
+                permutest(comparisonData{1}',comparisonData{2}',dependMeans,0.05,10000,true,10);
             
             clusterFile = [dataSource filesep 'Clusters_' figTitle '.mat'];
             save(clusterFile, 'clusters' , 'p_values' , 't_sums', 'permutation_distribution');
@@ -325,12 +338,6 @@ if doPlots == 1
         exportgraphics(f,fig_filename,'Resolution',300); % set to 300dpi and save.
         close(gcf);
     end % of figure by figure loop.
-
-
-
-
-
-
 
 
 end % of plotting check
