@@ -42,7 +42,7 @@ binTimings(9).measureWindow = [0 78000];
 % which experiment are we going to run?
 ConfigFileName =  'Sal_Config_090623';
 plotting = 0; % 1 = draw figs per person/freq; 0 = don't draw.
-extractData = 0; % 1 = pull raw data; 0 = use existing files.
+extractData = 1; % 1 = pull raw data; 0 = use existing files.
 
 peakFreqs = [15]; % hz
 
@@ -77,14 +77,25 @@ DataConfig = table2struct(readtable(ConfigFilePath, Options));
 DataConfig = adjustConfigData(DataConfig);
 SUB = DataConfig.SUB;
 
+% initialize an output structure.
+globalData  = struct;
+globalData.hz = [];
+globalData.times_hilb = [];
+globalData.Hilbert = {};
+globalData.FFT = {};
+globalData.Weights = {};
+globalData.Chans = {};
+   
+
+
 %% specify parameters
 for counter = 1:length(BinsToTest)
-    % allows us to test subsets of the bins. 
+    % allows us to test subsets of the bins.
     thisCond = BinsToTest(counter);
     
-% baselining details
-baseline = binTimings(thisCond).baseline;
-measureWindow = binTimings(thisCond).measureWindow;
+    % baselining details
+    baseline = binTimings(thisCond).baseline;
+    measureWindow = binTimings(thisCond).measureWindow;
     
     if extractData == 1
         %% start the subject by subject loop (thisSUB).
@@ -159,6 +170,16 @@ measureWindow = binTimings(thisCond).measureWindow;
                 
                 % check to see that there are actually epochs available.
                 if isempty(index)
+                    
+                    
+                    % empty all the reportable vectors.
+                    snr_hilb_ress = []; % mean time series
+                    snrR = []; % mean FFT
+                    ress_normWeights = [];
+                    chanlocs = [];
+                    hz = [];
+                    times_hilb = [];
+                    
                 else
                     
                     % finally pull out the needed data.
@@ -293,8 +314,8 @@ measureWindow = binTimings(thisCond).measureWindow;
                     
                     %% and output the saved data series.
                     % some code specific to "all bins chosen" mode
-%                     temp = char(string(allConds));
-%                     condLbl = temp(:)';
+                    %                     temp = char(string(allConds));
+                    %                     condLbl = temp(:)';
                     condLbl = allConds{counter};
                     outFilename = [Subject_Path filesep ...
                         SUB{thisSUB} '_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' ...
@@ -302,89 +323,97 @@ measureWindow = binTimings(thisCond).measureWindow;
                     % and out it goes.
                     save(outFilename,'snr_hilb_ress','times_hilb', 'ressx', 'snrR' , 'hz', ...
                         'ress_normWeights', 'chanlocs');
-                    % organized by subject and bin. 
-                    globalData.Hilbert{thisSUB, counter} = snr_hilb_ress; % mean time series
-                    globalData.FFT{thisSUB, counter} = snrR; % mean FFT
+                    
+                end % of skipping out of a no-epoch data set.
+                
+                % organized by subject and bin.
+                globalData.Hilbert{thisSUB, counter} = snr_hilb_ress; % mean time series
+                globalData.FFT{thisSUB, counter} = snrR; % mean FFT
+                
+                % grab location data per person, if not already grabbed.
+                if  length(globalData.Weights) < thisSUB
                     globalData.Weights{thisSUB} = ress_normWeights;
                     globalData.Chans{thisSUB} = chanlocs;
-                    % grab header info
-                    if  counter == 1 % first bin to be processed.
+                    if isempty(globalData.Weights{thisSUB})
                         globalData.Weights{thisSUB} = ress_normWeights;
                         globalData.Chans{thisSUB} = chanlocs;
-                        if thisSUB == 1 % first participant to be processed.
-                            globalData.hz = hz;
-                            globalData.times_hilb = times_hilb;
-                        end
                     end
-                end % of skipping out of a no-epoch data set.
+                end
+                
+                % get time and hz information, if needed. 
+                if isempty(globalData.hz) 
+                    globalData.hz = hz;
+                    globalData.times_hilb = times_hilb;
+                end
+                
             end % of freq by freq loop.
         end % of subject by subject loop.
     end % of decision not to extract data
 end% of condition by condition loop
 
-    % now go subject by subject and generate a time-by-SUB power spreadsheet
-    % one per condition and per frequency.
-    
-    
-    % load one file to initialise some basic values
-    Subject_Path = [fileparts(pwd) filesep SUB{1}];
-    
-    openFile = [Subject_Path filesep SUB{1} '_' num2str(peakFreqs(1)) 'Hz_Cond' ...
-        allConds{1}  '.mat'];
- 
-    % this should be a while loop... 
-    if exist(openFile) > 0
-        load(openFile);
-    else
-        disp('Missing Initial file.');
-    end
-    %
-    pnts_out = length(times_hilb);
-    times_out = times_hilb;
-    hz_out = hz;
-    SUB_out = SUB';
-    
-    % initialize an output array
-    out_ts= NaN(length(SUB), pnts_out);
-    out_psd = NaN(length(SUB), length(hz_out));
-    
-    % initialize an output folder and file
-    if exist('RESS_output', 'dir') == 7
-    else
-        mkdir 'RESS_output'
-    end
-    
-    for thisCond = 1:length(allConds)
-        for thisFreq = 1:length(peakFreqs)
-            for thisSUB = 1:length(SUB)
-                disp(['loading SUB' SUB{thisSUB}]);
-                % load a preprocessed file.
-                Subject_Path = [fileparts(pwd) filesep SUB{thisSUB}];
-                openFile = [Subject_Path filesep SUB{thisSUB} '_' num2str(peakFreqs(thisFreq)) ...
-                    'Hz_Cond' allConds{thisCond}  '.mat'];
-                if exist(openFile) == 2
-                    load(openFile);
-                    % load in the hilb data.
-                    out_ts(thisSUB,:) = snr_hilb_ress';
-                    out_psd(thisSUB,:) = snrR;
-                end
-            end % of thisSUB loop
-            
-            % now export that as an .xlsx file
-            outFilename = ['RESS_output' filesep num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.xlsx'];
-            display(['writing file' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond}] );
-            writecell(SUB_out,outFilename, 'Sheet', 'SUBs');
-            writematrix(times_out, outFilename, 'Sheet', 'times');
-            writematrix(hz_out, outFilename, 'Sheet', 'hz');
-            writematrix(out_ts', outFilename, 'Sheet' , ...
-                ['Hilb_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
-            writematrix(out_psd, outFilename, 'Sheet' , ...
-                ['FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
-            % save as matlab data too.
-            outFilename = ['RESS_output' filesep 'Hilb_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.mat'];
-            save(outFilename, 'out_ts');
-            outFilename = ['RESS_output' filesep 'FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.mat'];
-            save(outFilename, 'out_psd');
-        end % of thisFreq loop
-    end % of condition by condition loop
+% now go subject by subject and generate a time-by-SUB power spreadsheet
+% one per condition and per frequency.
+
+
+% load one file to initialise some basic values
+Subject_Path = [fileparts(pwd) filesep SUB{1}];
+
+openFile = [Subject_Path filesep SUB{1} '_' num2str(peakFreqs(1)) 'Hz_Cond' ...
+    allConds{1}  '.mat'];
+
+% this should be a while loop...
+if exist(openFile) > 0
+    load(openFile);
+else
+    disp('Missing Initial file.');
+end
+%
+pnts_out = length(times_hilb);
+times_out = times_hilb;
+hz_out = hz;
+SUB_out = SUB';
+
+% initialize an output array
+out_ts= NaN(length(SUB), pnts_out);
+out_psd = NaN(length(SUB), length(hz_out));
+
+% initialize an output folder and file
+if exist('RESS_output', 'dir') == 7
+else
+    mkdir 'RESS_output'
+end
+
+for thisCond = 1:length(allConds)
+    for thisFreq = 1:length(peakFreqs)
+        for thisSUB = 1:length(SUB)
+            disp(['loading SUB' SUB{thisSUB}]);
+            % load a preprocessed file.
+            Subject_Path = [fileparts(pwd) filesep SUB{thisSUB}];
+            openFile = [Subject_Path filesep SUB{thisSUB} '_' num2str(peakFreqs(thisFreq)) ...
+                'Hz_Cond' allConds{thisCond}  '.mat'];
+            if exist(openFile) == 2
+                load(openFile);
+                % load in the hilb data.
+                out_ts(thisSUB,:) = snr_hilb_ress';
+                out_psd(thisSUB,:) = snrR;
+            end
+        end % of thisSUB loop
+        
+        % now export that as an .xlsx file
+        outFilename = ['RESS_output' filesep num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.xlsx'];
+        display(['writing file' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond}] );
+        writecell(SUB_out,outFilename, 'Sheet', 'SUBs');
+        writematrix(times_out, outFilename, 'Sheet', 'times');
+        writematrix(hz_out, outFilename, 'Sheet', 'hz');
+        writematrix(out_ts', outFilename, 'Sheet' , ...
+            ['Hilb_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
+        writematrix(out_psd, outFilename, 'Sheet' , ...
+            ['FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
+        % save as matlab data too.
+        outFilename = ['RESS_output' filesep 'Hilb_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.mat'];
+        save(outFilename, 'out_ts');
+        outFilename = ['RESS_output' filesep 'FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.mat'];
+        save(outFilename, 'out_psd');
+    end % of thisFreq loop
+end % of condition by condition loop
 
