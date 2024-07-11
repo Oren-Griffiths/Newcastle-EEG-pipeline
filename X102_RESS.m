@@ -5,39 +5,44 @@
 %   from Mike X Cohen and Rasa Gulbinaite
 % mikexcohen@gmail.com or rasa.gulbinaite@gmail.com
 
-clear
 
-%
-%% other fixed parameters
-
+%% specify parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % which experiment are we going to run?
-ConfigFileName = 'HPRnet3_wTraining_140623';
+ConfigFileName =  'Config_CaitlinCharlotte_v2023';
 plotting = 0; % 1 = draw figs per person/freq; 0 = don't draw.
 extractData = 1; % 1 = pull raw data; 0 = use existing files.
 
-% main parameters
-peakFreqs = [15]; % hz
-RESSchans = {'all'}; % can have a cell array of names, or 'all', or [] = all
-BinsToTest = [1:9]; % which "bins"/epochs are you RESS/FFT/Hilb-ing?
-customBins = 0; % if customBins = 1, you will need to specify measurement 
-% and baseline windows. 
+peakFreqs = [10]; % hz
+decibel_correct = 1; % if 1 = correct to decibels, 0 = give snr ratio.
 
 % used for 'best-electrode' analyses
-electrode1 = 'Oz';
-
-% define key to pull individual bins from EEG epoch structure.
-for k = 1:length(BinsToTest)
-    allConds{k} = ['B' num2str(BinsToTest(k))];
-end
+electrode1 = 'Cz';
 
 % parameters for RESS filters:
-peakwidt  = 0.5; % FWHM at peak frequency
-neighfreq = 1;  % distance of neighboring frequencies away from peak frequency, +/- in Hz
+peakwidt  = 1; % FWHM at peak frequency
+neighfreq = 2;  % distance of neighboring frequencies away from peak frequency, +/- in Hz
 neighwidt = 0.5;  % FWHM of the neighboring frequencies
 
 % parameter for FFT baseline corrections
 skipbins =  2; % .2 Hz (skips two bins; minimal smear anticipated)
 numbins  = 10+skipbins; %  1 Hz. Again, assumes minimal smear.
+
+% which channels do we calculate RESS over?
+% if you want all channels, write 'all' in cell format: {'all'}
+RESSchans = {'all'}; 
+% RESSchans = {'Fp1';'AF7';'AF3';'F1';'F3';'F5';'F7';'FT7';'FC5';'FC3';'FC1';'C1';'C3';'C5'; ...
+%     'T7';'TP7';'CP5';'CP3';'CP1';'P1';'P3';'P5';'P7';'P9';'PO7';'PO3';'O1';'Iz';'Oz';'POz'; ...
+%     'Pz';'CPz';'Fpz';'Fp2';'AF8';'AF4';'Afz';'Fz';'F2';'F4';'F6';'F8';'FT8';'FC6';'FC4';'FC2';...
+%     'FCz';'Cz';'C2';'C4';'C6';'T8';'TP8';'CP6';'CP4';'CP2';'P2';'P4';'P6';'P8';'P10';'PO8';'PO4';'O2'}
+
+% % posterior half
+% RESSchans = {'TP7';'CP5';'CP3';'CP1';'P1';'P3';'P5';'P7';'P9';'PO7';'PO3';'O1';'Iz';'Oz';'POz'; ...
+%     'Pz';'CPz';'TP8';'CP6';'CP4';'CP2';'P2';'P4';'P6';'P8';'P10';'PO8';'PO4';'O2'};
+
+% frontal half.
+% RESSchans = {'Fp1';'AF7';'AF3';'F1';'F3';'F5';'F7';'FT7';'FC5';'FC3';'FC1';'C1';'C3';'C5'; ...
+%     'T7';'Fpz';'Fp2';'AF8';'AF4';'Afz';'Fz';'F2';'F4';'F6';'F8';'FT8';'FC6';'FC4';'FC2';...
+%     'FCz';'Cz';'C2';'C4';'C6';'T8'};
 
 %% setup the study level configuration details.
 Current_File_Path = pwd;
@@ -53,63 +58,48 @@ DataConfig = table2struct(readtable(ConfigFilePath, Options));
 DataConfig = adjustConfigData(DataConfig);
 SUB = DataConfig.SUB;
 
-% initialize an output structure.
-globalData  = struct;
-globalData.hz = [];
-globalData.times_hilb = [];
-globalData.Hilbert = {};
-globalData.FFT = {};
-globalData.Weights = {};
-globalData.Chans = {};
-  
-%% you have the option of custom measurement (FFT) and baseline (Hilb) periods.  
+%%  some experiment specific information about the task %%%%%%%%%%%%%%%%%%%
+BinsToTest = [1:9];
 binTimings = struct;
-if customBins == 0
-    % import from DataConfig file.
-    for k = 1:length(BinsToTest)
-        thisBin = BinsToTest(k);
-        binTimings(thisBin).baseline = [DataConfig.BaselineMin{1},DataConfig.BaselineMax{1} ];
-        binTimings(thisBin).measureWindow = [DataConfig.BaselineMax{1}, DataConfig.EpochMax{1}];
-    end
-else % specify in the format below.
-    
-    %
-    binTimings(1).baseline = [-2000, 0];
-    binTimings(1).measureWindow = [0 78000];
-    %
-    binTimings(2).baseline = [-2000, 0];
-    binTimings(2).measureWindow = [0 78000];
-    %
-    binTimings(3).baseline = [-2000, 0];
-    binTimings(3).measureWindow = [0 78000];
-    %
-    binTimings(4).baseline = [-2000, 0];
-    binTimings(4).measureWindow = [0 78000];
-    %
-    binTimings(5).baseline = [-2000, 0];
-    binTimings(5).measureWindow = [0 78000];
-    %
-    binTimings(6).baseline = [-2000, 0];
-    binTimings(6).measureWindow = [0 78000];
-    %
-    binTimings(7).baseline = [-2000, 0];
-    binTimings(7).measureWindow = [0 78000];
-    %
-    binTimings(8).baseline = [-2000, 0];
-    binTimings(8).measureWindow = [0 78000];
-    %
-    binTimings(9).baseline = [-2000, 0];
-    binTimings(9).measureWindow = [0 78000];
-end
+%
+binTimings(1).baseline = [-6500, -5500];
+binTimings(1).measureWindow = [-6500 9700];
+%
+binTimings(2).baseline = [-6500, -5500];
+binTimings(2).measureWindow = [-6500 9700];
+%
+binTimings(3).baseline = [-6500, -5500];
+binTimings(3).measureWindow = [-6500 9700];
+%
+binTimings(4).baseline = [-6500, -5500];
+binTimings(4).measureWindow = [-6500 9700];
+%
+binTimings(5).baseline = [-7535, -6535];
+binTimings(5).measureWindow = [-7535, 9700];
+%
+binTimings(6).baseline = [-12282 -11282];
+binTimings(6).measureWindow = [-12282 9700];
+%
+binTimings(7).baseline = [-7535, -6535];
+binTimings(7).measureWindow = [-7535, 9700];
+%
+binTimings(8).baseline = [-12282 -11282];
+binTimings(8).measureWindow = [-12282 9700];
+%
+binTimings(9).baseline = [-6000 -5000]; 
+binTimings(9).measureWindow = [-6500 9700]; 
+%
 
-%% start the analysis. 
-for counter = 1:length(BinsToTest)
-    % allows us to test subsets of the bins.
-    thisCond = BinsToTest(counter);
+%% start loading in the data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for thisLoop = BinsToTest
     
-    % baselining details
-    baseline = binTimings(thisCond).baseline;
-    measureWindow = binTimings(thisCond).measureWindow;
+    % condition number, see below
+    allConds = {['B' num2str(thisLoop)]};
+
+    baseline = binTimings(thisLoop).baseline;
+    measureWindow = binTimings(thisLoop).measureWindow;
+
+  
     
     if extractData == 1
         %% start the subject by subject loop (thisSUB).
@@ -126,10 +116,8 @@ for counter = 1:length(BinsToTest)
             disp(FileToOpen);
             
             EEG = pop_loadset( 'filename', FileToOpen, 'filepath', Subject_Path);
-            % and remove any non-scalp data (not usually needed with Newcastle preprocessing).
-            if EEG.nbchan > DataConfig.lastScalp
-                EEG = pop_select(EEG, 'channel',[DataConfig.firstScalp:DataConfig.lastScalp]);
-            end
+            % and remove any non-scalp data (not needed with Newcastle preprocessing).
+            % EEG = pop_select(EEG, 'channel',[ 1:32]);
             
             % do a quick check to see whether "best" electrode was removed in this
             % data set.
@@ -157,46 +145,27 @@ for counter = 1:length(BinsToTest)
                 nfft = ceil( EEG.srate/.1 ); % .1 Hz resolution
                 tidx = dsearchn(EEG.times',measureWindow'); % we use data from .5-10 seconds, to avoid using the stimulus transient
                 
-                % find the relevant epochs.
-                if isempty(find(contains(epochvect,allConds{counter})))
-                    index = [];
-                else
-                    index = find(contains(epochvect,allConds{counter}));
+                for thisCond = 1:length(allConds)
+                    if isempty(find(contains(epochvect,allConds{thisCond})))
+                        index_allConds{thisCond} = 0;
+                    else
+                        index_allConds{thisCond} = find(contains(epochvect,allConds{thisCond}));
+                    end
                 end
-                
-                % extra code to help manage when you want to aggregate
-                % across multiple bins
-                %                 for thisCond = 1:length(allConds)
-                %                     if isempty(find(contains(epochvect,allConds{thisCond})))
-                %                         index_allConds{thisCond} = 0;
-                %                     else
-                %                         index_allConds{thisCond} = find(contains(epochvect,allConds{thisCond}));
-                %                     end
-                %                 end
-                %                 % combine all the found epochs
-                %                 index = index_allConds{1};
-                %                 if length(index_allConds) > 1
-                %                     for thisEpoch = 2:length(index_allConds)
-                %                         index = union(index, index_allConds{thisEpoch});
-                %                     end
-                %                 end
-                %                 index = index(index>0); % remove any empty searches
+                % combine all the found epochs
+                index = index_allConds{1};
+                if length(index_allConds) > 1
+                    for thisEpoch = 2:length(index_allConds)
+                        index = union(index, index_allConds{thisEpoch});
+                    end
+                end
+                index = index(index>0); % remove any empty searches
                 
                 % check to see that there are actually epochs available.
                 if isempty(index)
-                    
-                    
-                    % empty all the reportable vectors.
-                    snr_hilb_ress = []; % mean time series
-                    snrR = []; % mean FFT
-                    ress_normWeights = [];
-                    chanlocs = [];
-                    hz = [];
-                    times_hilb = [];
-                    
                 else
                     
-                                        % finally pull out the needed data.
+                    % finally pull out the needed data.
                     % but filter in only the channels you need.
                     if isempty(RESSchans)
                         % default is all channels included
@@ -210,8 +179,9 @@ for counter = 1:length(BinsToTest)
                         [C,ia,ib] = intersect(listOfChans,RESSchans); 
                         EEG = pop_select( EEG, 'channel',listOfChans(ia));
                         data = EEG.data(:,:,index);
+                        
                     end
-                    
+
                     dataX = mean(abs( fft(data(:,tidx(1):tidx(2),:),nfft,2)/diff(tidx) ).^2,3);
                     hz    = linspace(0,EEG.srate,nfft);
                     
@@ -253,9 +223,9 @@ for counter = 1:length(BinsToTest)
                     
                     %% compute SNR spectrum
                     
-                    ressx = mean(abs( fft(ress_ts1(tidx(1):tidx(2),:),nfft,1)/diff(tidx) ).^2,   2 , 'omitnan'   );
+                    ressx = mean(abs( fft(ress_ts1(tidx(1):tidx(2),:),nfft,1)/diff(tidx) ).^2,   2    );
                     
-                    [snrR,snrE] = deal(zeros(size(hz)));
+                    [snrR,snrE,snr_db] = deal(zeros(size(hz)));
                     % skipbins =  5; % ignore for baseline correction
                     % numbins  = 20+skipbins; % use for baseline correction.
                     
@@ -263,26 +233,49 @@ for counter = 1:length(BinsToTest)
                     for hzi=numbins+1:length(hz)-numbins-1
                         numer = ressx(hzi);
                         denom = mean( ressx([hzi-numbins:hzi-skipbins hzi+skipbins:hzi+numbins]) );
+                        denom_db = mean( log10(ressx([hzi-numbins:hzi-skipbins hzi+skipbins:hzi+numbins])) );
                         snrR(hzi) = numer./denom;
+                        snr_db(hzi) = 10 * (log10(numer) - denom_db);
                     end
                     
+                    % decibel correct this value?
+                    if decibel_correct == 1
+                        % if decibel correction used, then overwrite the
+                        % value.
+                        snrR = snr_db;
+                    end
+                   
+
+
                     % and now let's get the power across time (snr, via Hilbert transform).
                     [filtdat,empVals] = filterFGx(ress_ts1',EEG.srate,peakFreqs(thisFreq),peakwidt,false);
                     hilbdat_ress =  abs(hilbert(filtdat')).^2';
                     
+                    
                     % now in epochs by samples format.
                     tidx_base = dsearchn(EEG.times',baseline');
                     denom_ress = mean(hilbdat_ress(:,tidx_base(1):tidx_base(2)),2);
+                    denom_ress_db = mean(log10(hilbdat_ress(:,tidx_base(1):tidx_base(2))),2);
                     % denominator (epochs in dim 1).
                     
                     snr_hilb_ress = [];
+                    db_hilb_ress = [];
                     for thisEpoch = 1:size(hilbdat_ress,1)
                         % report this in epochs by samples format.
                         snr_hilb_ress(thisEpoch, :) = hilbdat_ress(thisEpoch,:)./denom_ress(thisEpoch);
+                        db_hilb_ress(thisEpoch, :) = 10* ( log10(hilbdat_ress(thisEpoch,:)) - denom_ress_db(thisEpoch));
                     end
                     
-                    % average across epochs
-                    snr_hilb_ress = mean(snr_hilb_ress,1, 'omitnan');
+                    % average across epochs for reporting.
+                    snr_hilb_ress = mean(snr_hilb_ress,1);
+                    db_hilb_ress = mean(db_hilb_ress,1);
+
+                    if decibel_correct == 1
+                        % if decibel correction is what is reported, then
+                        % overwrite the snr variable here. 
+                        snr_hilb_ress = db_hilb_ress;
+                    end
+
                     times_hilb = EEG.times';
                     
                     % and grab some data about spatial distribution of inferred RESS
@@ -340,111 +333,81 @@ for counter = 1:length(BinsToTest)
                     end
                     
                     %% and output the saved data series.
-                    % some code specific to "all bins chosen" mode
-                    %                     temp = char(string(allConds));
-                    %                     condLbl = temp(:)';
-                    condLbl = allConds{counter};
+                    temp = char(string(allConds));
+                    condLbl = temp(:)';
                     outFilename = [Subject_Path filesep ...
                         SUB{thisSUB} '_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' ...
                         condLbl '.mat'];
                     % and out it goes.
                     save(outFilename,'snr_hilb_ress','times_hilb', 'ressx', 'snrR' , 'hz', ...
                         'ress_normWeights', 'chanlocs');
-                    
                 end % of skipping out of a no-epoch data set.
-                
-                % organized by subject and bin.
-                globalData.Hilbert{thisSUB, counter} = snr_hilb_ress; % mean time series
-                globalData.FFT{thisSUB, counter} = snrR; % mean FFT
-                
-                % grab location data per person, if not already grabbed.
-                if  length(globalData.Weights) < thisSUB
-                    globalData.Weights{thisSUB} = ress_normWeights;
-                    globalData.Chans{thisSUB} = chanlocs;
-                    if isempty(globalData.Weights{thisSUB})
-                        globalData.Weights{thisSUB} = ress_normWeights;
-                        globalData.Chans{thisSUB} = chanlocs;
-                    end
-                end
-                
-                % get time and hz information, if needed. 
-                if isempty(globalData.hz) 
-                    globalData.hz = hz;
-                    globalData.times_hilb = times_hilb;
-                end
-                
             end % of freq by freq loop.
         end % of subject by subject loop.
     end % of decision not to extract data
-end% of condition by condition loop
-
-% now go subject by subject and generate a time-by-SUB power spreadsheet
-% one per condition and per frequency.
-
-
-% load one file to initialise some basic values
-Subject_Path = [fileparts(pwd) filesep SUB{1}];
-
-openFile = [Subject_Path filesep SUB{1} '_' num2str(peakFreqs(1)) 'Hz_Cond' ...
-    allConds{1}  '.mat'];
-
-% this should be a while loop...
-openFile = [Subject_Path filesep '1_15Hz_CondB7.mat'];
-if exist(openFile) > 0
+    
+    % now go subject by subject and generate a time-by-SUB power spreadsheet
+    % one per condition and per frequency.
+    
+    % these variables defined above.
+    % peakFreqs = [15, 17.14, 20, 24]; % hz
+    % allConds = {'B1' , 'B2' , 'B3' , 'B4' , 'B1B2B3B4'};
+    % SUB = DataConfig.SUB;
+    
+    % load one file to initialise some basic values
+    Subject_Path = [fileparts(pwd) filesep SUB{1}];
+    openFile = [Subject_Path filesep SUB{1} '_' num2str(peakFreqs(1)) 'Hz_Cond' ...
+        allConds{1}  '.mat'];
     load(openFile);
-else
-    disp('Missing Initial file.');
-end
-%
-pnts_out = length(times_hilb);
-times_out = times_hilb;
-hz_out = hz;
-SUB_out = SUB';
+    pnts_out = length(times_hilb);
+    times_out = times_hilb;
+    hz_out = hz;
+    SUB_out = SUB';
+    
+    % initialize an output array
+    out_ts= NaN(length(SUB), pnts_out);
+    out_psd = NaN(length(SUB), length(hz_out));
+    
+    % initialize an output folder and file
+    if exist('RESS_output', 'dir') == 7
 
-% initialize an output array
-out_ts= NaN(length(SUB), pnts_out);
-out_psd = NaN(length(SUB), length(hz_out));
-
-% initialize an output folder and file
-if exist('RESS_output', 'dir') == 7
-else
-    mkdir 'RESS_output'
-end
-
-for thisCond = 1:length(allConds)
-    for thisFreq = 1:length(peakFreqs)
-        out_ts = NaN(length(SUB),length(times_hilb));
-        out_psd = NaN(length(SUB),length(hz));
-        
-        for thisSUB = 1:length(SUB)
-            disp(['loading SUB' SUB{thisSUB}]);
-            % load a preprocessed file.
-            Subject_Path = [fileparts(pwd) filesep SUB{thisSUB}];
-            openFile = [Subject_Path filesep SUB{thisSUB} '_' num2str(peakFreqs(thisFreq)) ...
-                'Hz_Cond' allConds{thisCond}  '.mat'];
-            if exist(openFile) == 2
-                load(openFile);
-                % load in the hilb data.
-                out_ts(thisSUB,:) = snr_hilb_ress';
-                out_psd(thisSUB,:) = snrR;
-            end
-        end % of thisSUB loop
-        
-        % now export that as an .xlsx file
-        outFilename = ['RESS_output' filesep num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.xlsx'];
-        display(['writing file' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond}] );
-        writecell(SUB_out,outFilename, 'Sheet', 'SUBs');
-        writematrix(times_out, outFilename, 'Sheet', 'times');
-        writematrix(hz_out, outFilename, 'Sheet', 'hz');
-        writematrix(out_ts', outFilename, 'Sheet' , ...
-            ['Hilb_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
-        writematrix(out_psd, outFilename, 'Sheet' , ...
-            ['FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
-        % save as matlab data too.
-        outFilename = ['RESS_output' filesep 'Hilb_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.mat'];
-        save(outFilename, 'out_ts');
-        outFilename = ['RESS_output' filesep 'FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.mat'];
-        save(outFilename, 'out_psd');
-    end % of thisFreq loop
-end % of condition by condition loop
+    else
+        mkdir 'RESS_output'
+    end
+    
+    for thisCond = 1:length(allConds)
+        for thisFreq = 1:length(peakFreqs)
+            for thisSUB = 1:length(SUB)
+                disp(['loading SUB' SUB{thisSUB}]);
+                % load a preprocessed file.
+                Subject_Path = [fileparts(pwd) filesep SUB{thisSUB}];
+                openFile = [Subject_Path filesep SUB{thisSUB} '_' num2str(peakFreqs(thisFreq)) ...
+                    'Hz_Cond' allConds{thisCond}  '.mat'];
+                if exist(openFile) == 2
+                    load(openFile);
+                    % load in the hilb data.
+                    out_ts(thisSUB,:) = snr_hilb_ress';
+                    out_psd(thisSUB,:) = snrR;
+                end
+            end % of thisSUB loop
+            
+            % now export that as an .xlsx file
+            outFilename = ['RESS_output' filesep num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.xlsx'];
+            display(['writing file' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond}] );
+            writecell(SUB_out,outFilename, 'Sheet', 'SUBs');
+            writematrix(times_out, outFilename, 'Sheet', 'times');
+            writematrix(hz_out, outFilename, 'Sheet', 'hz');
+            writematrix(out_ts, outFilename, 'Sheet' , ...
+                ['Hilb_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
+            writematrix(out_psd, outFilename, 'Sheet' , ...
+                ['FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} ]);
+            % save as matlab data too.
+            outFilename = ['RESS_output' filesep 'Hilb_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.mat'];
+            save(outFilename, 'out_ts');
+            outFilename = ['RESS_output' filesep 'FFT_' num2str(peakFreqs(thisFreq)) 'Hz_Cond' allConds{thisCond} '.mat'];
+            save(outFilename, 'out_psd');
+        end % of thisFreq loop
+    end % of thisCond loop
+    
+end % of extra loop across all conditions individually
 

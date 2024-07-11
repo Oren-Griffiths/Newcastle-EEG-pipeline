@@ -16,7 +16,7 @@ keyChans = {'all'};
 keyHz = [4 7]; % theta is 4-7Hz.
 % keyHz = [10 14]; % alpha is 10-14Hz.
 
-timeWindow = [0 300]; % N1 peak is ~110ms (but wavelet window is ~500ms)
+timeWindow = [0 8700]; % N1 peak is ~110ms (but wavelet window is ~500ms)
 
 % which condition do we want to process?
 % currently written to loop through all conditions.
@@ -28,10 +28,10 @@ timeWindow = [0 300]; % N1 peak is ~110ms (but wavelet window is ~500ms)
 % just bins 1-3. 
 allConditions = {'B1(' , 'B2(' , 'B3(', ...
     'B4(', 'B5(' , 'B6(', ...
-    'B7('};
+    'B7(', 'B8(', 'B9('};
 % fixed values across all figures.
-colour_max = 3; % or 3
-colour_min = -3; % or -1
+colour_max = 7; % or 3
+colour_min = -7; % or -1
 colour_max_itc = 0.5;
 colour_min_itc = 0;
 
@@ -39,7 +39,8 @@ colour_min_itc = 0;
 colScheme = 'jet';
 
 % what's the relevant config file called?
-ConfigFileName = 'Config_P4B_justControls';
+ConfigFileName = 'Config_CaitlinCharlotte_v2023_onlyCompleteFiles';
+rawDataFolder = 'TF_output_dBwholeWindow';
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Current_File_Path = pwd;
@@ -53,6 +54,7 @@ end
 DataConfig = table2struct(readtable(ConfigFilePath, Options));
 DataConfig = adjustConfigData(DataConfig);
 
+%% identify channels and locations given incomplete chan lists%%%%%%%%%%%%%
 NoOfChans = DataConfig.TotalChannels{1};
 
 load('chanlocs.mat');
@@ -71,18 +73,24 @@ else
     end
 end
 
-
+%% open up eeglab and initialize %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % and open eeglab to access the EEGlab functions
 eeglab;
 % shorten variable name
 SUB = DataConfig.SUB;
 
 %% goal #1, plot  theta spatial topo during ERP peak (100-200ms) for patients
+% initialize the topoplot output variables.
+
+spatial_patient_ersp = NaN(length(SUB),size(allConditions, 1), NoOfChans);
+spatial_patient_itc = NaN(length(SUB),size(allConditions, 1), NoOfChans);
+
 for thisPID = 1:length(SUB)
     % loop through each needed file, load it, grab needed data, push it into
     % some holder variable.
-    filename = ['TF_output' filesep SUB{thisPID} '_TFdata.mat'];
+    filename = [rawDataFolder filesep SUB{thisPID} '_TFdata.mat'];
     load(filename); % create variable tf_data
+    tf_data = outData;
     for thisCND = 1:length(allConditions)
         % want 64 chans, average over timeWindow, average over keyHz
         time_idx = (tf_data.cond(thisCND).times >= timeWindow(1)) & ...
@@ -91,13 +99,27 @@ for thisPID = 1:length(SUB)
             (tf_data.cond(thisCND).freqs <= keyHz(2)) ;
         disp(['processing_cnd_' allConditions{thisCND} '_in_PID_' SUB{thisPID} ])
         for thisChan = 1:NoOfChans
-            spatial_patient_ersp(thisPID, thisCND, thisChan) =  ...
-                mean(tf_data.cond(thisCND).chan(thisChan).ersp(freq_idx,time_idx), 'all', 'omitnan');
-            spatial_patient_itc(thisPID, thisCND, thisChan) =  ...
-                mean(tf_data.cond(thisCND).chan(thisChan).itc(freq_idx,time_idx), 'all', 'omitnan');
+            % find the channel in the input file that matches the desired
+            % channel label, and make it conform to "chanlocs" variable.
+
+            match = strcmp({tf_data.cond(thisCND).chan.lbl}, chanlocs(thisChan).labels);
+            if any(match)
+                % that channel appears in the data set.
+                [row, col] = find(match);
+                rawChan_idx = max(row, col);
+                % found the channel, now lets pull those data.
+                spatial_patient_ersp(thisPID, thisCND, thisChan) =  ...
+                    mean(tf_data.cond(thisCND).chan(rawChan_idx).ersp(freq_idx,time_idx), 'all', 'omitnan');
+                spatial_patient_itc(thisPID, thisCND, thisChan) =  ...
+                    mean(tf_data.cond(thisCND).chan(rawChan_idx).itc(freq_idx,time_idx), 'all', 'omitnan');
+
+            else
+                % do nothing. It's already initialized as a NaN.
+            end
+
         end % of channel by channel loop
     end % of condition by condition loop
-    
+
 end % of PID loop
 
 % create output folders if needed 
@@ -178,22 +200,47 @@ end % of thisCND loop
 
 
 %% goal 3, grab mean time-freq plot for whole epoch, all freqs for patients
-% first, patients
-
 for thisPID = 1:length(SUB)
     % loop through each needed file, load it, grab needed data, push it into
     % some holder variable.
-    filename = ['TF_output' filesep SUB{thisPID} '_TFdata.mat'];
+    filename = [rawDataFolder filesep SUB{thisPID} '_TFdata.mat'];
     load(filename); % create variable tf_data
-    
+    tf_data = outData;
     for thisCND = 1:length(allConditions)
         % want just the key channel, all times, all freqs.
         disp(['processing_cnd_' allConditions{thisCND} '_in_PID_' SUB{thisPID} ])
+
+
         for thisChan_idx = 1:length(keyChanIdx)
+            % find the list of desired channels, pick them one by one.
             thisChan = keyChanIdx(thisChan_idx);
-            holder_ersp(thisChan_idx, :, :) = tf_data.cond(thisCND).chan(thisChan).ersp;
-            holder_itc(thisChan_idx, :, :) = abs(tf_data.cond(thisCND).chan(thisChan).itc);
+            % find the channel in the input file that matches the desired
+            % channel label, and make it conform to "chanlocs" variable.
+            match = strcmp({tf_data.cond(thisCND).chan.lbl}, chanlocs(thisChan).labels);
+            if any(match)
+                % that channel appears in the data set.
+                [row, col] = find(match);
+                rawChan_idx = max(row, col);
+                % found the channel, now lets find it and pull the data.
+                holder_ersp(thisChan_idx, :, :) = tf_data.cond(thisCND).chan(rawChan_idx).ersp;
+                holder_itc(thisChan_idx, :, :) = abs(tf_data.cond(thisCND).chan(rawChan_idx).itc);
+
+            else
+                % fill in with an appropriately sized NaN matrix.
+                holder_ersp(thisChan_idx, :, :) = NaN(size(tf_data.cond(thisCND).chan(rawChan_idx).ersp));
+                holder_itc(thisChan_idx, :, :) = NaN(size(tf_data.cond(thisCND).chan(rawChan_idx).itc));
+            end
+
         end % of channel by channel loop
+
+% holder_ersp (chanbs, freqs, times). [~64, 395, 200]
+%         for thisChan_idx = 1:length(keyChanIdx)
+%             thisChan = keyChanIdx(thisChan_idx);
+%             holder_ersp(thisChan_idx, :, :) = tf_data.cond(thisCND).chan(thisChan).ersp;
+%             holder_itc(thisChan_idx, :, :) = abs(tf_data.cond(thisCND).chan(thisChan).itc);
+%         end % of channel by channel loop
+
+
         % 4d: pid, cnd, time, freq.
         temporal_patient_ersp(thisPID, thisCND, :, :) =  ...
             mean(holder_ersp,1, 'omitnan');
@@ -218,7 +265,9 @@ for thisCND = 1:length(allConditions)
     % draw each figure for ersp
 figure;
 % 4d: pid, cnd, time, freq.
-contourf(times,freqs, squeeze(mean(temporal_patient_ersp(:,thisCND,:,:), 1, 'omitnan'))  );
+plotMatrix = smooth2a(squeeze(mean(temporal_patient_ersp(:,thisCND,:,:), 1, 'omitnan')), 5, 5);
+contourf(times,freqs, plotMatrix );
+% contourf(times,freqs, squeeze(mean(temporal_patient_ersp(:,thisCND,:,:), 1, 'omitnan'))  );
 colorbar;
 colormap(colScheme);
 if ~isempty(colour_min) || ~isempty(colour_max)
@@ -243,7 +292,9 @@ close(gcf);
 
 % draw each figure for itc
 figure;
-contourf(times,freqs, squeeze(mean(temporal_patient_itc(:,thisCND,:,:), 1, 'omitnan'))  );
+plotMatrix = smooth2a(squeeze(mean(temporal_patient_itc(:,thisCND,:,:), 1, 'omitnan'))  , 5, 5);
+contourf(times,freqs, plotMatrix );
+% contourf(times,freqs, squeeze(mean(temporal_patient_itc(:,thisCND,:,:), 1, 'omitnan'))  );
 colorbar;
 colormap(colScheme);
 caxis([colour_min_itc, colour_max_itc]);
